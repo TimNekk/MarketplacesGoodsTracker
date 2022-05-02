@@ -1,6 +1,7 @@
 # Self
 .idea/
 chromedriver.exe
+creds.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
