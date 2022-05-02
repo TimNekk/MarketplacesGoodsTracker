@@ -43,4 +43,4 @@ if __name__ == "__main__":
     schedule.every(3).hours.do(app.update)
     while True:
         schedule.run_pending()
-        sleep(10)
+        sleep(1)
