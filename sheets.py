@@ -14,5 +14,5 @@ class Sheets:
         return self.sheet.col_values(2)
 
     def set_quantities(self, quantities: List[int]):
-        cells = tuple(map(lambda x: [x], quantities))
+        cells = tuple(map(lambda x: ["Нет в наличии"] if x == -1 else [x], quantities))
         self.sheet.update("A1", cells)
