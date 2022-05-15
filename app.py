@@ -10,22 +10,33 @@ from sheets import Sheets
 
 
 class App:
-    def __init__(self, credentials: ServiceAccountCredentials):
+    def __init__(self, credentials: ServiceAccountCredentials, hide_driver=True):
         self.sheets = Sheets(credentials)
-        self.parser = Parser(True)
+        self.parser = Parser(hide_driver)
 
     def get_quantities(self) -> List[int]:
         urls = self.sheets.get_urls()
         quantities = []
 
         for url in urls:
+            print(f"Parsing {url}...")
+
             quantity = -1
             try:
                 quantity = self.parser.get_quantity(url)
             except Exception as e:
                 print(e)
+                print("Trying to parse 2nd time...")
+
+                try:
+                    quantity = self.parser.get_quantity(url)
+                except Exception as e:
+                    print(e)
+
+            print(f"Quantity: {quantity}")
             quantities.append(quantity)
 
+        print("Done parsing")
         return quantities
 
     def update(self):
@@ -40,7 +51,7 @@ if __name__ == "__main__":
     app = App(CREDENTIAL)
     app.update()
 
-    schedule.every(3).hours.do(app.update)
+    schedule.every().day.do(app.update)
     while True:
         schedule.run_pending()
         sleep(1)
