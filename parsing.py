@@ -1,8 +1,9 @@
+import logging
 import re
 from time import sleep
 
 from selenium import webdriver
-from selenium.common.exceptions import InvalidArgumentException
+from selenium.common.exceptions import InvalidArgumentException, StaleElementReferenceException
 from selenium.webdriver import Keys
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -21,7 +22,7 @@ class Parser:
         chrome_options = Options()
         if self.headless:
             chrome_options.add_argument("--headless")
-        return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        return webdriver.Chrome(service=Service(ChromeDriverManager(log_level=logging.NOTSET).install()), options=chrome_options)
 
     def get_quantity(self, url: str) -> int:
         input_index = 4
@@ -31,6 +32,14 @@ class Parser:
             driver.get(url)
         except InvalidArgumentException:
             raise ValueError(f"Wrong url passed ({url})")
+
+        # Checks if item is out of stock
+        for el in driver.find_elements(By.TAG_NAME, "div"):
+            try:
+                if el.get_attribute("data-widget") == "webPrice" and "Товар закончился" in el.text:
+                    raise OutOfStockException("Item is out of stock")
+            except StaleElementReferenceException:
+                pass
 
         # Adding to cart
         try:
@@ -72,6 +81,10 @@ class Parser:
         return left
 
 
+class OutOfStockException(Exception):
+    pass
+
+
 if __name__ == "__main__":
-    parser = Parser(True)
+    parser = Parser()
     print(parser.get_quantity(input()))
