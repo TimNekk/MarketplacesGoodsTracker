@@ -6,7 +6,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 from config import CREDENTIAL
 from errors import Error
-from parsing import Parser, OutOfStockException
+from parsing import Parser, OutOfStockException, WrongUrlException
 from sheets import Sheets
 
 
@@ -32,6 +32,10 @@ class App:
                 try:
                     quantity = self.parser.get_quantity(url)
                     print(f"Quantity: {quantity}")
+                    break
+                except WrongUrlException as e:
+                    print(e)
+                    quantity = Error.WRONG_URL
                     break
                 except OutOfStockException as e:
                     print(e)
