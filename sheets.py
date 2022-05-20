@@ -17,10 +17,10 @@ class Sheets:
         return self.sheet.col_values(1)[1:]
 
     def set_quantities(self, quantities: List):
-        for i in range(len(quantities)):
-            if quantities[i] == Error.OUT_OF_STOCK:
+        for i, quantity in enumerate(quantities):
+            if quantity == Error.OUT_OF_STOCK:
                 quantities[i] = "Нет в наличии"
-            elif quantities[i] == Error.PARSING_ERROR:
+            elif quantity == Error.PARSING_ERROR:
                 quantities[i] = "Ошибка"
 
         quantities.insert(0, datetime.now().strftime("%d/%m"))
