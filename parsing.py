@@ -31,7 +31,7 @@ class Parser:
         try:
             driver.get(url)
         except InvalidArgumentException:
-            raise ValueError(f"Wrong url passed ({url})")
+            raise WrongUrlException(f"Wrong url passed ({url})")
 
         # Checks if item is out of stock
         for el in driver.find_elements(By.TAG_NAME, "div"):
@@ -82,6 +82,10 @@ class Parser:
 
 
 class OutOfStockException(Exception):
+    pass
+
+
+class WrongUrlException(Exception):
     pass
 
 
