@@ -5,38 +5,47 @@ import schedule
 from oauth2client.service_account import ServiceAccountCredentials
 
 from config import CREDENTIAL
-from parsing import Parser
+from errors import Error
+from parsing import Parser, OutOfStockException
 from sheets import Sheets
 
 
 class App:
-    def __init__(self, credentials: ServiceAccountCredentials, hide_driver=True):
+    def __init__(self, credentials: ServiceAccountCredentials, hide_driver=True, max_parsing_attempts=3):
         self.sheets = Sheets(credentials)
         self.parser = Parser(hide_driver)
+        self.max_parsing_attempts = max_parsing_attempts
 
     def get_quantities(self) -> List[int]:
         urls = self.sheets.get_urls()
         quantities = []
 
         for url in urls:
-            print(f"Parsing {url}...")
+            print(f"\nParsing {url}...")
 
-            quantity = -1
-            try:
-                quantity = self.parser.get_quantity(url)
-            except Exception as e:
-                print(e)
-                print("Trying to parse 2nd time...")
+            quantity = 0
+            attempt = 0
+
+            while attempt != self.max_parsing_attempts:
+                print(f"Attempt #{attempt + 1}")
 
                 try:
                     quantity = self.parser.get_quantity(url)
+                    print(f"Quantity: {quantity}")
+                    break
+                except OutOfStockException as e:
+                    print(e)
+                    quantity = Error.OUT_OF_STOCK
+                    break
                 except Exception as e:
                     print(e)
+                    quantity = Error.PARSING_ERROR
 
-            print(f"Quantity: {quantity}")
+                attempt += 1
+
             quantities.append(quantity)
 
-        print("Done parsing")
+        print("\nDone parsing\n")
         return quantities
 
     def update(self):
@@ -48,7 +57,7 @@ class App:
 
 
 if __name__ == "__main__":
-    app = App(CREDENTIAL)
+    app = App(CREDENTIAL, False)
     app.update()
 
     schedule.every().day.do(app.update)
