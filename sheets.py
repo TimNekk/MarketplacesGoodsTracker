@@ -22,6 +22,8 @@ class Sheets:
                 quantities[i] = "Нет в наличии"
             elif quantity == Error.PARSING_ERROR:
                 quantities[i] = "Ошибка"
+            elif quantity == Error.WRONG_URL:
+                quantities[i] = ""
 
         quantities.insert(0, datetime.now().strftime("%d/%m"))
         self.sheet.insert_cols([quantities], col=3)
