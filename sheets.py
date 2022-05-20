@@ -4,7 +4,8 @@ from typing import List
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-from errors import Error
+from item import Item
+from status import Status
 
 
 class Sheets:
@@ -16,14 +17,15 @@ class Sheets:
     def get_urls(self) -> List[str]:
         return self.sheet.col_values(1)[1:]
 
-    def set_quantities(self, quantities: List):
-        for i, quantity in enumerate(quantities):
-            if quantity == Error.OUT_OF_STOCK:
-                quantities[i] = "Нет в наличии"
-            elif quantity == Error.PARSING_ERROR:
-                quantities[i] = "Ошибка"
-            elif quantity == Error.WRONG_URL:
-                quantities[i] = ""
+    def set_items(self, items: List[Item]):
+        quantities, prices = [datetime.now().strftime("%d/%m")], [""]
+        for i, item in enumerate(items):
+            if item.status == Status.OK:
+                quantities.append(item.quantity)
+                prices.append(item.price)
+            else:
+                quantities.append(item.status.value)
+                prices.append("")
 
-        quantities.insert(0, datetime.now().strftime("%d/%m"))
-        self.sheet.insert_cols([quantities], col=3)
+        self.sheet.insert_cols([quantities, prices], col=3)
+        self.sheet.merge_cells("C1:D1")
