@@ -24,7 +24,7 @@ class Parser:
             chrome_options.add_argument("--headless")
         return webdriver.Chrome(service=Service(ChromeDriverManager(log_level=logging.NOTSET).install()), options=chrome_options)
 
-    def get_quantity(self, url: str) -> int:
+    def get_quantity_and_price(self, url: str) -> tuple[int, int]:
         input_index = 4
         driver = self._get_driver()
 
@@ -34,21 +34,25 @@ class Parser:
             raise WrongUrlException(f"Wrong url passed ({url})")
 
         # Checks if item is out of stock
+        web_sale_el = None
         for el in driver.find_elements(By.TAG_NAME, "div"):
             try:
-                if el.get_attribute("data-widget") == "webPrice" and "Товар закончился" in el.text:
-                    raise OutOfStockException("Item is out of stock")
+                if el.get_attribute("data-widget") == "webSale":
+                    web_sale_el = el
+                    for el2 in web_sale_el.find_elements(By.TAG_NAME, "div"):
+                        if el2.get_attribute("data-widget") == "webPrice" and "Товар закончился" in el2.text:
+                            raise OutOfStockException("Item is out of stock")
             except StaleElementReferenceException:
                 pass
 
         # Adding to cart
         try:
             # If only one "Add to cart" button
-            add_to_card_button = list(filter(lambda button: button.text == "Добавить в корзину", driver.find_elements(By.TAG_NAME, "button")))[0]
+            add_to_card_button = list(filter(lambda button: button.text == "Добавить в корзину", web_sale_el.find_elements(By.TAG_NAME, "button")))[0]
         except IndexError:
             # If two "Add to cart" buttons
             input_index = 5
-            add_to_card_button = list(filter(lambda button: button.text == "В корзину", driver.find_elements(By.TAG_NAME, "button")))[1]
+            add_to_card_button = list(filter(lambda button: button.text == "В корзину", web_sale_el.find_elements(By.TAG_NAME, "button")))[1]
         add_to_card_button.click()
         sleep(0.8)
 
@@ -57,6 +61,18 @@ class Parser:
 
         # Hide pop-up window
         webdriver.ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+
+        # Getting price
+        price = 0
+        for el in driver.find_elements(By.TAG_NAME, "div"):
+            try:
+                if el.get_attribute("data-widget") == "stickyContainer":
+                    for div in el.find_elements(By.TAG_NAME, "div")[::-1]:
+                        if "₽" in div.text:
+                            price = int("".join(re.findall(r"\d+", div.text)))
+                            break
+            except StaleElementReferenceException:
+                pass
 
         # Click on quantity input
         inputs = driver.find_elements(By.TAG_NAME, "input")
@@ -78,7 +94,7 @@ class Parser:
 
         driver.close()
 
-        return left
+        return left, price
 
 
 class OutOfStockException(Exception):
@@ -91,4 +107,4 @@ class WrongUrlException(Exception):
 
 if __name__ == "__main__":
     parser = Parser()
-    print(parser.get_quantity(input()))
+    print(parser.get_quantity_and_price(input()))

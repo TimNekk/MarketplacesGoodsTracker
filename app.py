@@ -5,7 +5,8 @@ import schedule
 from oauth2client.service_account import ServiceAccountCredentials
 
 from config import CREDENTIAL
-from errors import Error
+from item import Item
+from status import Status
 from parsing import Parser, OutOfStockException, WrongUrlException
 from sheets import Sheets
 
@@ -16,52 +17,54 @@ class App:
         self.parser = Parser(hide_driver)
         self.max_parsing_attempts = max_parsing_attempts
 
-    def get_quantities(self) -> List[int]:
+    def get_items(self) -> List[Item]:
         urls = self.sheets.get_urls()
-        quantities = []
+        items = []
 
         for url in urls:
             print(f"\nParsing {url}...")
 
-            quantity = 0
+            item = Item()
             attempt = 0
 
             while attempt != self.max_parsing_attempts:
                 print(f"Attempt #{attempt + 1}")
 
                 try:
-                    quantity = self.parser.get_quantity(url)
-                    print(f"Quantity: {quantity}")
+                    quantity, price = self.parser.get_quantity_and_price(url)
+                    item = Item(quantity, price, Status.OK)
+                    print(item)
                     break
                 except WrongUrlException as e:
                     print(e)
-                    quantity = Error.WRONG_URL
+                    item.status = Status.WRONG_URL
                     break
                 except OutOfStockException as e:
                     print(e)
-                    quantity = Error.OUT_OF_STOCK
+                    item.status = Status.OUT_OF_STOCK
                     break
                 except Exception as e:
                     print(e)
-                    quantity = Error.PARSING_ERROR
+                    item.status = Status.PARSING_ERROR
 
                 attempt += 1
 
-            quantities.append(quantity)
+            items.append(item)
 
         print("\nDone parsing\n")
-        return quantities
+        return items
 
     def update(self):
         try:
-            quantities = self.get_quantities()
-            self.sheets.set_quantities(quantities)
+            items = self.get_items()
+            self.sheets.set_items(items)
         except Exception as e:
             print(e)
 
 
 if __name__ == "__main__":
     app = App(CREDENTIAL, False)
+
     app.update()
 
     schedule.every().day.do(app.update)
