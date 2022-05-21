@@ -68,7 +68,7 @@ class Parser:
             try:
                 if el.get_attribute("data-widget") == "stickyContainer":
                     for div in el.find_elements(By.TAG_NAME, "div")[::-1]:
-                        if div.text != '':
+                        if "₽" in div.text:
                             price = int("".join(re.findall(r"\d+", div.text)))
                             break
             except StaleElementReferenceException:
