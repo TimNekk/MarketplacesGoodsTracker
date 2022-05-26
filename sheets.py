@@ -12,13 +12,19 @@ class Sheets:
     def __init__(self, credentials: ServiceAccountCredentials, workbook_name="OZON Трекер количества"):
         self.client = gspread.authorize(credentials)
         self.workbook = self.client.open(workbook_name)
+
         self.sheet = self.workbook.sheet1
+
+    def _get_top_offset(self) -> int:
+        return self.sheet.col_values(1).index("Ссылка")
 
     def get_urls(self) -> List[str]:
         return self.sheet.col_values(1)[1:]
 
     def set_items(self, items: List[Item]):
-        quantities, prices = [datetime.now().strftime("%d/%m")], [""]
+        offset = self._get_top_offset()
+        quantities, prices = [""] * offset + [datetime.now().strftime("%d/%m")], [""] * offset
+
         for i, item in enumerate(items):
             if item.status == Status.OK:
                 quantities.append(item.quantity)
