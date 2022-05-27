@@ -40,7 +40,8 @@ class Parser:
                 if el.get_attribute("data-widget") == "webSale":
                     web_sale_el = el
                     for el2 in web_sale_el.find_elements(By.TAG_NAME, "div"):
-                        if el2.get_attribute("data-widget") == "webPrice" and "Товар закончился" in el2.text:
+                        if el2.get_attribute("data-widget") == "webPrice" and \
+                                ("Товар закончился" in el2.text or "Товар не доставляется в ваш город" in el2.text):
                             raise OutOfStockException("Item is out of stock")
             except StaleElementReferenceException:
                 pass
