@@ -23,7 +23,7 @@ class Sheets:
 
     def set_items(self, items: List[Item]):
         offset = self._get_top_offset()
-        quantities, prices = [""] * offset + [datetime.now().strftime("%d/%m")], [""] * offset
+        quantities, prices = [""] * offset + [datetime.now().strftime("%d/%m")], [""] * (offset + 1)
 
         for i, item in enumerate(items):
             if item.status == Status.OK:
