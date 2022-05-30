@@ -1,3 +1,4 @@
+import sys
 from time import sleep
 from typing import List
 
@@ -63,11 +64,14 @@ class App:
 
 
 if __name__ == "__main__":
+    args = sys.argv[1:]
+
     app = App(CREDENTIAL, False)
 
-    app.update()
+    if len(args) < 1 or args[0] != "0":
+        app.update()
 
-    schedule.every().day.at("7:00").do(app.update)
+    schedule.every().day.at("07:00").do(app.update)
     while True:
         schedule.run_pending()
         sleep(1)
