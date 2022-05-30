@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     app.update()
 
-    schedule.every().day.do(app.update)
+    schedule.every().day.at("7:00").do(app.update)
     while True:
         schedule.run_pending()
         sleep(1)
