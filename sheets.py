@@ -48,3 +48,21 @@ class Sheets:
 
         self.sheet.insert_cols([quantities, prices], col=3)
         self.sheet.merge_cells("C1:D1")
+        self.add_border(f"C1:D{len(urls) + 1}")
+
+    def add_border(self, cells_range: str) -> None:
+        first, second = cells_range.split(":")
+        left, top, right, bottom = first[0], first[1:], second[0], second[1:]
+        border = {"style": "SOLID"}
+
+        # Edges
+        self.sheet.format(f"{left}{top}:{right}{top}", {"borders": {"top": border}})
+        self.sheet.format(f"{left}{top}:{left}{bottom}", {"borders": {"left": border}})
+        self.sheet.format(f"{left}{bottom}:{right}{bottom}", {"borders": {"bottom": border}})
+        self.sheet.format(f"{right}{top}:{right}{bottom}", {"borders": {"right": border}})
+
+        # Corners
+        self.sheet.format(left + top, {"borders": {"left": border, "top": border}})
+        self.sheet.format(right + top, {"borders": {"right": border, "top": border}})
+        self.sheet.format(left + bottom, {"borders": {"left": border, "bottom": border}})
+        self.sheet.format(right + bottom, {"borders": {"right": border, "bottom": border}})
