@@ -12,58 +12,43 @@ from sheets import Sheets
 
 
 class App:
-    def __init__(self, credentials: ServiceAccountCredentials, hide_driver=True, max_parsing_attempts=3):
+    def __init__(self, credentials: ServiceAccountCredentials):
         self.sheets = Sheets(credentials)
-        self.parser = Parser(hide_driver)
-        self.max_parsing_attempts = max_parsing_attempts
 
     def get_items(self) -> List[Item]:
         urls = self.sheets.get_urls()
         items = []
 
-        for url in urls:
-            print(f"\nParsing {url}...")
-
-            item = Item()
-            attempt = 0
-
-            while attempt != self.max_parsing_attempts:
-                print(f"Attempt #{attempt + 1}")
+        with Parser() as parser:
+            for url in urls:
+                print(f"\nAdding to cart: {url}...")
 
                 try:
-                    quantity, price = self.parser.get_quantity_and_price(url)
-                    item = Item(quantity, price, Status.OK)
-                    print(item)
-                    break
+                    parser.add_to_cart(url)
+                    print("Added!")
                 except WrongUrlException as e:
                     print(e)
-                    item.status = Status.WRONG_URL
-                    break
                 except OutOfStockException as e:
                     print(e)
-                    item.status = Status.OUT_OF_STOCK
-                    break
-                except Exception as e:
-                    print(e)
-                    item.status = Status.PARSING_ERROR
+                    items.append(Item(id=parser.get_item_id_from_url(url), status=Status.OUT_OF_STOCK))
 
-                attempt += 1
+            cart = parser.get_cart()
+            items += cart
 
-            items.append(item)
-
-        print("\nDone parsing\n")
+        print("\nDone parsing!\n")
         return items
 
     def update(self):
         try:
             items = self.get_items()
+            print(items)
             self.sheets.set_items(items)
         except Exception as e:
             print(e)
 
 
 if __name__ == "__main__":
-    app = App(CREDENTIAL, False)
+    app = App(CREDENTIAL)
 
     app.update()
 
