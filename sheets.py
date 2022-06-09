@@ -23,7 +23,7 @@ class Sheets:
 
     def set_items(self, items: List[Item]):
         offset = self._get_top_offset()
-        quantities, prices = [""] * offset + [datetime.now().strftime("%d/%m")], [""] * offset
+        quantities, prices = [""] * offset + [datetime.now().strftime("%d/%m")], [""] * (offset + 1)
 
         urls = self.get_urls()
         for url in urls:

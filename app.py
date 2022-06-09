@@ -16,7 +16,7 @@ class App:
         self.sheets = Sheets(credentials)
 
     def get_items(self) -> List[Item]:
-        urls = self.sheets.get_urls()
+        urls = self.sheets.get_urls() + [""]
         items = []
 
         with Parser() as parser:
@@ -42,7 +42,13 @@ class App:
         try:
             items = self.get_items()
             print(items)
-            self.sheets.set_items(items)
+
+            while True:
+                try:
+                    self.sheets.set_items(items)
+                    break
+                except Exception:
+                    sleep(60)
         except Exception as e:
             print(e)
 
