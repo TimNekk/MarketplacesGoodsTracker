@@ -43,12 +43,15 @@ class App:
             items = self.get_items()
             print(items)
 
+            print("\nExporting...\n")
             while True:
                 try:
                     self.sheets.set_items(items)
                     break
                 except Exception:
                     sleep(60)
+
+            print("\nDone exporting!\n")
         except Exception as e:
             print(e)
 
