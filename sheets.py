@@ -19,18 +19,31 @@ class Sheets:
         return self.sheet.col_values(1).index("Ссылка")
 
     def get_urls(self) -> List[str]:
-        return self.sheet.col_values(1)[1:]
+        return self.sheet.col_values(1)[(self._get_top_offset() + 1):]
 
     def set_items(self, items: List[Item]):
         offset = self._get_top_offset()
         quantities, prices = [""] * offset + [datetime.now().strftime("%d/%m")], [""] * (offset + 1)
 
-        for i, item in enumerate(items):
-            if item.status == Status.OK:
-                quantities.append(item.quantity)
-                prices.append(item.price)
-            else:
-                quantities.append(item.status.value)
+        urls = self.get_urls()
+        for url in urls:
+            added = False
+
+            for item in items:
+                if item.id not in url:
+                    continue
+
+                if item.status == Status.OK:
+                    quantities.append(item.quantity)
+                    prices.append(item.price)
+                else:
+                    quantities.append(item.status.value)
+                    prices.append("")
+                added = True
+                break
+
+            if not added:
+                quantities.append("")
                 prices.append("")
 
         self.sheet.insert_cols([quantities, prices], col=3)

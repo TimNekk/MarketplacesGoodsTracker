@@ -1,101 +1,92 @@
+import json
 import logging
 import re
-from time import sleep
+from collections.abc import Iterable
 
 from selenium import webdriver
-from selenium.common.exceptions import InvalidArgumentException, StaleElementReferenceException
-from selenium.webdriver import Keys
-from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import InvalidArgumentException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
+from item import Item
+from status import Status
+
 
 class Parser:
-    def __init__(self, headless=False) -> None:
-        self.headless = headless
+    def __init__(self) -> None:
+        self._cart = "https://www.ozon.ru/cart"
 
-        self.cart = "https://www.ozon.ru/cart"
+    def __enter__(self):
+        self._driver = self._get_driver()
+        return self
 
-    def _get_driver(self) -> WebDriver:
-        chrome_options = Options()
-        if self.headless:
-            chrome_options.add_argument("--headless")
-        return webdriver.Chrome(service=Service(ChromeDriverManager(log_level=logging.NOTSET).install()), options=chrome_options)
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._driver.quit()
 
-    def get_quantity_and_price(self, url: str) -> tuple[int, int]:
-        input_index = 4
-        driver = self._get_driver()
+    @staticmethod
+    def _get_driver() -> WebDriver:
+        options = webdriver.ChromeOptions()
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-automation")
+        options.add_argument('--disable-infobars')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-browser-side-navigation')
+        return webdriver.Chrome(service=Service(ChromeDriverManager(log_level=logging.NOTSET).install()), options=options)
 
+    def add_to_cart(self, url: str) -> None:
         try:
-            driver.get(url)
+            self._driver.get(url)
         except InvalidArgumentException:
             raise WrongUrlException(f"Wrong url passed ({url})")
 
-        # Checks if item is out of stock
-        web_sale_el = None
-        for el in driver.find_elements(By.TAG_NAME, "div"):
-            try:
-                if el.get_attribute("data-widget") == "webSale":
-                    web_sale_el = el
-                    for el2 in web_sale_el.find_elements(By.TAG_NAME, "div"):
-                        if el2.get_attribute("data-widget") == "webPrice" and \
-                                ("Товар закончился" in el2.text or "Товар не доставляется в ваш город" in el2.text):
-                            raise OutOfStockException("Item is out of stock")
-            except StaleElementReferenceException:
-                pass
+        if list(filter(lambda button: button.text == "Узнать о поступлении", self._driver.find_elements(By.TAG_NAME, "button"))):
+            raise OutOfStockException("Item is out of stock")
 
-        # Adding to cart
         try:
-            # If only one "Add to cart" button
-            add_to_card_button = list(filter(lambda button: button.text == "Добавить в корзину", web_sale_el.find_elements(By.TAG_NAME, "button")))[0]
+            add_to_card_button = list(filter(lambda button: button.text == "Добавить в корзину", self._driver.find_elements(By.TAG_NAME, "button")))[0]
         except IndexError:
-            # If two "Add to cart" buttons
-            input_index = 5
-            add_to_card_button = list(filter(lambda button: button.text == "В корзину", web_sale_el.find_elements(By.TAG_NAME, "button")))[1]
+            add_to_card_button = list(filter(lambda button: button.text == "В корзину", self._driver.find_elements(By.TAG_NAME, "button")))[1]
         add_to_card_button.click()
-        sleep(0.8)
 
-        # Go to cart
-        driver.get(self.cart)
+    def get_cart(self) -> Iterable[Item]:
+        self._driver.get(self._cart)
 
-        # Hide pop-up window
-        webdriver.ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+        page_source = self._driver.page_source
 
-        # Getting price
-        price = 0
-        for el in driver.find_elements(By.TAG_NAME, "div"):
-            try:
-                if el.get_attribute("data-widget") == "stickyContainer":
-                    for div in el.find_elements(By.TAG_NAME, "div")[::-1]:
-                        if "₽" in div.text:
-                            price = int("".join(re.findall(r"\d+", div.text)))
-                            break
-            except StaleElementReferenceException:
-                pass
+        json_string: str = re.findall(r"JSON.parse\('(.*?)'\)", page_source)[0]
+        json_string = json_string.replace("\\\\", "\\")
+        data = json.loads(json_string)
 
-        # Click on quantity input
-        inputs = driver.find_elements(By.TAG_NAME, "input")
-        inputs[input_index].click()
+        cart_id: str = re.findall(r"group_in_cart(.*?):&quot;(.*?)&quot;}", page_source)[0][1]
 
-        # Go to bottom of quantity list
-        sleep(0.3)
-        for _ in range(0, 10):
-            webdriver.ActionChains(driver).send_keys(Keys.ARROW_DOWN).perform()
-        webdriver.ActionChains(driver).send_keys(Keys.ENTER).perform()
+        return self._parse_cart_json(data, cart_id)
 
-        # Type max number to quantity input
-        inputs = driver.find_elements(By.TAG_NAME, "input")
-        inputs[input_index].send_keys("9999999999999")
+    @staticmethod
+    def _parse_cart_json(response_json, cart_id: str) -> Iterable[Item]:
+        cart_json: str = response_json.get("state").get("trackingPayloads").get(cart_id)
+        items_json = json.loads(cart_json).get("items")
 
-        # Get available quantity
-        sleep(3)
-        left = int(re.findall(r"Товары \(([\d&nbsp;]+)\)", driver.page_source)[0].replace("&nbsp;", ""))
+        items: list[Item] = []
+        for item_json in items_json:
+            item = Item(
+                id=str(item_json.get("sku")),
+                quantity=item_json.get("maxQuantity"),
+                price=item_json.get("finalPrice"),
+                status=Status.OK
+            )
+            items.append(item)
 
-        driver.close()
+        return items
 
-        return left, price
+    @staticmethod
+    def get_item_id_from_url(url: str) -> str:
+        return re.findall(r"product(.*)-(\d+)", url)[0][1]
 
 
 class OutOfStockException(Exception):
@@ -107,5 +98,6 @@ class WrongUrlException(Exception):
 
 
 if __name__ == "__main__":
-    parser = Parser()
-    print(parser.get_quantity_and_price(input()))
+    with Parser() as parser:
+        parser.add_to_cart(input())
+        print(parser.get_cart())
