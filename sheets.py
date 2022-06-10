@@ -47,8 +47,8 @@ class Sheets:
                 prices.append("")
 
         self.sheet.insert_cols([quantities, prices], col=3)
-        self.sheet.merge_cells("C1:D1")
         self.add_border(f"C1:D{len(urls) + 1}")
+        self.sheet.merge_cells("C1:D1")
 
     def add_border(self, cells_range: str) -> None:
         first, second = cells_range.split(":")
