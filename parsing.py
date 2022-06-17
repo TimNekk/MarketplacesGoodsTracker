@@ -1,7 +1,8 @@
 import json
 import logging
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Collection
+from time import sleep
 
 from selenium import webdriver
 from selenium.common.exceptions import InvalidArgumentException
@@ -53,9 +54,12 @@ class Parser:
         except IndexError:
             add_to_card_button = list(filter(lambda button: button.text == "В корзину", self._driver.find_elements(By.TAG_NAME, "button")))[1]
         add_to_card_button.click()
+        sleep(1)
 
-    def get_cart(self) -> Iterable[Item]:
+    def get_cart(self) -> Collection[Item]:
+        sleep(1)
         self._driver.get(self._cart)
+        sleep(1)
 
         page_source = self._driver.page_source
 
@@ -64,8 +68,7 @@ class Parser:
         data = json.loads(json_string)
 
         cart_id: str = re.findall(r"group_in_cart(.*?):&quot;(.*?)&quot;}", page_source)[0][1]
-
-        return self._parse_cart_json(data, cart_id)
+        return list(self._parse_cart_json(data, cart_id))
 
     @staticmethod
     def _parse_cart_json(response_json, cart_id: str) -> Iterable[Item]:
@@ -86,7 +89,7 @@ class Parser:
 
     @staticmethod
     def get_item_id_from_url(url: str) -> str:
-        return re.findall(r"product(.*)-(\d+)", url)[0][1]
+        return re.findall(r"product(.*)-(\d+)\/", url)[0][1]
 
 
 class OutOfStockException(Exception):
