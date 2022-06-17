@@ -19,22 +19,26 @@ class App:
     def get_items(self) -> List[Item]:
         urls = self.sheets.get_urls() + [""]
         items = []
+        total_added = 0
 
-        with Parser() as parser:
-            for url in urls:
-                print(f"\nAdding to cart: {url}...")
+        while True:
+            with Parser() as parser:
+                for url in urls:
+                    print(f"\nAdding to cart: {url}...")
+                    try:
+                        parser.add_to_cart(url)
+                        total_added += 1
+                        print(f"Added! (Total: {total_added})")
+                    except WrongUrlException as e:
+                        print(e)
+                    except OutOfStockException as e:
+                        print(e)
+                        items.append(Item(id=parser.get_item_id_from_url(url), status=Status.OUT_OF_STOCK))
 
-                try:
-                    parser.add_to_cart(url)
-                    print("Added!")
-                except WrongUrlException as e:
-                    print(e)
-                except OutOfStockException as e:
-                    print(e)
-                    items.append(Item(id=parser.get_item_id_from_url(url), status=Status.OUT_OF_STOCK))
-
-            cart = parser.get_cart()
-            items += cart
+                cart = parser.get_cart()
+                if len(cart) == total_added:
+                    items += cart
+                    break
 
         print("\nDone parsing!\n")
         return items
