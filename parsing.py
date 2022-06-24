@@ -57,14 +57,13 @@ class Parser:
         sleep(1)
 
     def get_cart(self) -> Collection[Item]:
-        sleep(1)
         self._driver.get(self._cart)
-        sleep(1)
 
         page_source = self._driver.page_source
 
-        json_string: str = re.findall(r"JSON.parse\('(.*?)'\)", page_source)[0]
+        json_string = str(re.findall(r"JSON.parse\('(.*?)'\)", page_source)[0])
         json_string = json_string.replace("\\\\", "\\")
+        json_string = re.sub(r"\\n", "", json_string)
         data = json.loads(json_string)
 
         cart_id: str = re.findall(r"group_in_cart(.*?):&quot;(.*?)&quot;}", page_source)[0][1]
