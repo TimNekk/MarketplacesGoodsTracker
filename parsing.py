@@ -12,6 +12,7 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 from item import Item
+from logger import logger
 from status import Status
 
 
@@ -41,36 +42,51 @@ class Parser:
         return webdriver.Chrome(service=Service(ChromeDriverManager(log_level=logging.NOTSET).install()), options=options)
 
     def add_to_cart(self, url: str) -> None:
+        logger.info(f"Adding to cart: {url}...")
+
         try:
+            logger.debug("Getting page source...")
             self._driver.get(url)
         except InvalidArgumentException:
             raise WrongUrlException(f"Wrong url passed ({url})")
 
+        logger.debug("Checking if item is out of stock...")
         if list(filter(lambda button: button.text == "Узнать о поступлении", self._driver.find_elements(By.TAG_NAME, "button"))):
             raise OutOfStockException("Item is out of stock")
 
+        logger.debug("Getting add to cart button...")
         try:
             add_to_card_button = list(filter(lambda button: button.text == "Добавить в корзину", self._driver.find_elements(By.TAG_NAME, "button")))[0]
         except IndexError:
             add_to_card_button = list(filter(lambda button: button.text == "В корзину", self._driver.find_elements(By.TAG_NAME, "button")))[1]
+
+        logger.debug("Clicking add to cart button...")
         add_to_card_button.click()
         sleep(1)
 
     def get_cart(self) -> Collection[Item]:
+        logger.debug("Getting cart...")
+
         self._driver.get(self._cart)
 
         page_source = self._driver.page_source
 
+        logger.debug("Parsing page source...")
         json_string = str(re.findall(r"JSON.parse\('(.*?)'\)", page_source)[0])
         json_string = json_string.replace("\\\\", "\\")
         json_string = re.sub(r"\\n", "", json_string)
+
+        logger.debug("Parsing json...")
         data = json.loads(json_string)
 
+        logger.debug("Getting cart id...")
         cart_id: str = re.findall(r"group_in_cart(.*?):&quot;(.*?)&quot;}", page_source)[0][1]
         return list(self._parse_cart_json(data, cart_id))
 
     @staticmethod
     def _parse_cart_json(response_json, cart_id: str) -> Iterable[Item]:
+        logger.debug("Parsing cart json...")
+
         cart_json: str = response_json.get("state").get("trackingPayloads").get(cart_id)
         items_json = json.loads(cart_json).get("items")
 

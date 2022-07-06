@@ -5,6 +5,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 from item import Item
+from logger import logger
 from status import Status
 
 
@@ -16,9 +17,11 @@ class Sheets:
         self.sheet = self.workbook.sheet1
 
     def _get_top_offset(self) -> int:
+        logger.info("Getting top offset...")
         return self.sheet.col_values(1).index("Ссылка")
 
     def get_urls(self) -> List[str]:
+        logger.info("Getting urls...")
         return self.sheet.col_values(1)[(self._get_top_offset() + 1):]
 
     def set_items(self, items: List[Item]):
@@ -46,8 +49,13 @@ class Sheets:
                 quantities.append("")
                 prices.append("")
 
+        logger.debug("Inserting data...")
         self.sheet.insert_cols([quantities, prices], col=3)
+
+        logger.debug("Adding borders...")
         self.add_border(f"C1:D{len(urls) + 1}")
+
+        logger.debug("Merging cells...")
         self.sheet.merge_cells("C1:D1")
 
     def add_border(self, cells_range: str) -> None:
