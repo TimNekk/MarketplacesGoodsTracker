@@ -1,4 +1,5 @@
 import sys
+from pprint import pprint
 from time import sleep
 from typing import List
 
@@ -45,8 +46,14 @@ class App:
 
     def update(self):
         try:
-            items = self.get_items()
-            print(items)
+            print("Getting items...\n")
+            while True:
+                try:
+                    items = self.get_items()
+                    pprint(items)
+                    break
+                except Exception as e:
+                    print(e)
 
             print("\nExporting...\n")
             while True:
