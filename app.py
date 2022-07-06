@@ -1,5 +1,4 @@
 import sys
-from pprint import pprint
 from time import sleep
 from typing import List
 
@@ -8,6 +7,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 from config import CREDENTIAL
 from item import Item
+from logger import logger
 from status import Status
 from parsing import Parser, OutOfStockException, WrongUrlException
 from sheets import Sheets
@@ -25,15 +25,14 @@ class App:
         while True:
             with Parser() as parser:
                 for url in urls:
-                    print(f"\nAdding to cart: {url}...")
                     try:
                         parser.add_to_cart(url)
                         total_added += 1
-                        print(f"Added! (Total: {total_added})")
+                        logger.info(f"Added! (Total: {total_added})")
                     except WrongUrlException as e:
-                        print(e)
+                        logger.exception(e)
                     except OutOfStockException as e:
-                        print(e)
+                        logger.exception(e)
                         items.append(Item(id=parser.get_item_id_from_url(url), status=Status.OUT_OF_STOCK))
 
                 cart = parser.get_cart()
@@ -41,37 +40,40 @@ class App:
                     items += cart
                     break
 
-        print("\nDone parsing!\n")
+        logger.info("Done parsing!")
         return items
 
     def update(self):
         try:
-            print("Getting items...\n")
+            logger.info("Getting items...")
             while True:
                 try:
                     items = self.get_items()
-                    pprint(items)
+                    logger.debug("\n".join(map(str, items)))
                     break
                 except Exception as e:
-                    print(e)
+                    logger.exception(e)
 
-            print("\nExporting...\n")
+            logger.info("Exporting...\n")
             while True:
                 try:
                     self.sheets.set_items(items)
                     break
-                except Exception:
+                except Exception as e:
+                    logger.exception(e)
                     sleep(60)
 
-            print("\nDone exporting!\n")
+            logger.info("Done exporting!")
         except Exception as e:
-            print(e)
+            logger.exception(e)
 
 
 if __name__ == "__main__":
     args = sys.argv[1:]
+    logger.debug(f"App started with args: {args}")
 
     app = App(CREDENTIAL)
+    logger.debug("App initialized")
 
     if len(args) < 1 or args[0] != "0":
         app.update()
