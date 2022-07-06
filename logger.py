@@ -18,7 +18,7 @@ file_handler_suffix = "%Y-%m-%d"
 _check_and_create_logging_directory(log_directory)
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 coloredlogs.install(level="INFO", logger=logger, fmt=fmt)
 
 file_handler = TimedRotatingFileHandler(log_directory + log_file, when="midnight", interval=1)
