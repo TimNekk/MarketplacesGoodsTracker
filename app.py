@@ -32,7 +32,7 @@ class App:
                     except WrongUrlException as e:
                         logger.debug(e)
                     except OutOfStockException as e:
-                        logger.debug(e)
+                        logger.exception(e)
                         items.append(Item(id=parser.get_item_id_from_url(url), status=Status.OUT_OF_STOCK))
 
                 cart = parser.get_cart()
