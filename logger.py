@@ -12,8 +12,8 @@ def _check_and_create_logging_directory(path):
 
 fmt = "%(asctime)s [%(levelname)s] - (%(filename)s).%(funcName)s(%(lineno)d) > %(message)s"
 log_directory = "logs/"
-log_file = "log.log"
-file_handler_suffix = "%Y-%m-%d"
+log_file = "log"
+file_handler_suffix = ".%d-%m-%Y.log"
 
 _check_and_create_logging_directory(log_directory)
 
@@ -23,6 +23,7 @@ coloredlogs.install(level="INFO", logger=logger, fmt=fmt)
 
 file_handler = TimedRotatingFileHandler(log_directory + log_file, when="midnight", interval=1)
 file_handler.setLevel(logging.DEBUG)
+file_handler.suffix = file_handler_suffix
 file_handler.setFormatter(logging.Formatter(fmt))
 
 logger.addHandler(file_handler)
