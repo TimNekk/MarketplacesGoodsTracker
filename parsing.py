@@ -3,12 +3,15 @@ import logging
 import re
 from collections.abc import Iterable, Collection
 from time import sleep
+from urllib.parse import urlsplit
 
 from selenium import webdriver
 from selenium.common.exceptions import InvalidArgumentException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions
+from selenium.webdriver.support.wait import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
 from item import Item
@@ -105,6 +108,17 @@ class Parser:
     @staticmethod
     def get_item_id_from_url(url: str) -> str:
         return re.findall(r"product(.*)-(\d+)\/", url)[0][1]
+
+    def get_redirect(self, url: str) -> str:
+        print(url)
+        self._driver.get(url)
+        WebDriverWait(self._driver, 3).until(lambda driver: driver.current_url != url)
+        print(self._driver.current_url)
+        return self._driver.current_url
+
+    @staticmethod
+    def remove_query_from_url(url: str) -> str:
+        return urlsplit(url)._replace(query=None).geturl()
 
 
 class OutOfStockException(Exception):
