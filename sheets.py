@@ -74,3 +74,8 @@ class Sheets:
         self.sheet.format(right + top, {"borders": {"right": border, "top": border}})
         self.sheet.format(left + bottom, {"borders": {"left": border, "bottom": border}})
         self.sheet.format(right + bottom, {"borders": {"right": border, "bottom": border}})
+
+    def replace_url(self, old_url: str, new_url: str):
+        logger.info(f"Replacing {old_url} with {new_url}...")
+        cell = self.sheet.find(old_url)
+        self.sheet.update_cell(cell.row, cell.col, new_url)
