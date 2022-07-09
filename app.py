@@ -18,30 +18,43 @@ class App:
         self.sheets = Sheets(credentials)
 
     def get_items(self) -> List[Item]:
-        urls = self.sheets.get_urls() + [""]
+        urls = self.fix_redirects_and_query(self.sheets.get_urls() + [""])
+        logger.debug(f'Got urls: {urls}')
+
         items = []
         total_added = 0
+        with Parser() as parser:
+            for url in urls:
+                try:
+                    parser.add_to_cart(url)
+                    total_added += 1
+                    logger.info(f"Added! (Total: {total_added})")
+                except WrongUrlException as e:
+                    logger.debug(e)
+                except OutOfStockException as e:
+                    logger.exception(e)
+                    total_added += 1
+                    logger.info(f"Added! (Total: {total_added})")
+                    items.append(Item(id=parser.get_item_id_from_url(url), status=Status.OUT_OF_STOCK))
 
-        while True:
-            with Parser() as parser:
-                for url in urls:
-                    try:
-                        parser.add_to_cart(url)
-                        total_added += 1
-                        logger.info(f"Added! (Total: {total_added})")
-                    except WrongUrlException as e:
-                        logger.debug(e)
-                    except OutOfStockException as e:
-                        logger.exception(e)
-                        items.append(Item(id=parser.get_item_id_from_url(url), status=Status.OUT_OF_STOCK))
-
-                cart = parser.get_cart()
-                if len(cart) == total_added:
-                    items += cart
-                    break
+            items += parser.get_cart()
 
         logger.info("Done parsing!")
         return items
+
+    def fix_redirects_and_query(self, urls: List[str]) -> List[str]:
+        logger.info("Fixing redirects...")
+        with Parser() as parser:
+            for index, old_url in enumerate(urls):
+                urls[index] = parser.remove_query_from_url(urls[index])
+                redirect = parser.get_redirect(urls[index])
+
+                if redirect != urls[index]:
+                    urls[index] = parser.remove_query_from_url(redirect)
+
+                self.sheets.replace_url(old_url, urls[index])
+
+        return urls
 
     def update(self):
         try:

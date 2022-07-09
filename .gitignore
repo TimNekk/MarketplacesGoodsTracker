@@ -2,6 +2,7 @@
 .idea/
 chromedriver.exe
 creds.json
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
