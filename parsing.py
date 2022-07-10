@@ -110,10 +110,14 @@ class Parser:
         return re.findall(r"product(.*)-(\d+)\/", url)[0][1]
 
     def get_redirect(self, url: str) -> str:
-        print(url)
-        self._driver.get(url)
+        while True:
+            try:
+                self._driver.get(url)
+                break
+            except:
+                pass
+
         WebDriverWait(self._driver, 3).until(lambda driver: driver.current_url != url)
-        print(self._driver.current_url)
         return self._driver.current_url
 
     @staticmethod

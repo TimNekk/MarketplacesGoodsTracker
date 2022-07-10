@@ -46,13 +46,18 @@ class App:
         logger.info("Fixing redirects...")
         with Parser() as parser:
             for index, old_url in enumerate(urls):
+                if not old_url:
+                    continue
+
+                logger.debug(f"Checking \"{old_url}\"...")
                 urls[index] = parser.remove_query_from_url(urls[index])
                 redirect = parser.get_redirect(urls[index])
 
                 if redirect != urls[index]:
                     urls[index] = parser.remove_query_from_url(redirect)
 
-                self.sheets.replace_url(old_url, urls[index])
+                if old_url != urls[index]:
+                    self.sheets.replace_url(old_url, urls[index])
 
         return urls
 
