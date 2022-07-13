@@ -12,7 +12,7 @@ def _check_and_create_logging_directory(path):
 
 fmt = "%(asctime)s [%(levelname)s] - (%(filename)s).%(funcName)s(%(lineno)d) > %(message)s"
 log_directory = "logs/"
-log_file = "log"
+log_file = ".log"
 file_handler_suffix = ".%d-%m-%Y.log"
 
 _check_and_create_logging_directory(log_directory)
