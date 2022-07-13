@@ -23,16 +23,24 @@ class App:
 
         items = []
         total_added = 0
+        cart_amount_old = 0
         with Parser() as parser:
             for url in urls:
                 try:
-                    parser.add_to_cart(url)
+                    while True:
+                        cart_amount = parser.add_to_cart(url)
+
+                        if cart_amount == cart_amount_old + 1:
+                            cart_amount_old = cart_amount
+                        else:
+                            break
+
                     total_added += 1
                     logger.info(f"Added! (Total: {total_added})")
                 except WrongUrlException as e:
                     logger.debug(e)
                 except OutOfStockException as e:
-                    logger.exception(e)
+                    logger.info(e)
                     total_added += 1
                     logger.info(f"Added! (Total: {total_added})")
                     items.append(Item(id=parser.get_item_id_from_url(url), status=Status.OUT_OF_STOCK))
