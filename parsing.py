@@ -10,7 +10,6 @@ from selenium.common.exceptions import InvalidArgumentException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
@@ -36,6 +35,7 @@ class Parser:
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
         options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-automation")
@@ -44,7 +44,7 @@ class Parser:
         options.add_argument('--disable-browser-side-navigation')
         return webdriver.Chrome(service=Service(ChromeDriverManager(log_level=logging.NOTSET).install()), options=options)
 
-    def add_to_cart(self, url: str) -> None:
+    def add_to_cart(self, url: str) -> int:
         logger.info(f"Adding to cart: {url}...")
 
         try:
@@ -54,7 +54,12 @@ class Parser:
             raise WrongUrlException(f"Wrong url passed ({url})")
 
         logger.debug("Checking if item is out of stock...")
-        if list(filter(lambda button: button.text == "Узнать о поступлении", self._driver.find_elements(By.TAG_NAME, "button"))):
+        out_of_stock_buttons = list(filter(lambda button: button.text == "Узнать о поступлении", self._driver.find_elements(By.TAG_NAME, "button")))
+        if out_of_stock_buttons:
+            for button in out_of_stock_buttons:
+                button.screenshot(f"logs/out_of_stock_{button.id}.png")
+                self._driver.save_screenshot(f"logs/out_of_stock_{button.id}_full.png")
+                logger.debug(f"Screenshot saved to logs/out_of_stock_{button.id}")
             raise OutOfStockException("Item is out of stock")
 
         logger.debug("Getting add to cart button...")
@@ -65,7 +70,9 @@ class Parser:
 
         logger.debug("Clicking add to cart button...")
         add_to_card_button.click()
+
         sleep(1)
+        return int(self._driver.find_elements(By.CLASS_NAME, "tsCaptionBold")[-1].text)
 
     def get_cart(self) -> Collection[Item]:
         logger.debug("Getting cart...")
