@@ -42,7 +42,8 @@ class Parser:
         options.add_argument('--disable-infobars')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-browser-side-navigation')
-        return webdriver.Chrome(service=Service(ChromeDriverManager(log_level=logging.NOTSET).install()), options=options)
+        options.binary_location = "C:\Program Files\Google\Chrome Beta\Application\chrome.exe"
+        return webdriver.Chrome(service=Service(ChromeDriverManager("104.0.5112.29", log_level=logging.DEBUG).install()), options=options)
 
     def add_to_cart(self, url: str) -> int:
         logger.info(f"Adding to cart: {url}...")
