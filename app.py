@@ -38,7 +38,7 @@ class App:
                         cart_amount_old = cart_amount
                         break
 
-                    if cart_amount != cart_amount_old + 1:
+                    if attempts == 0:
                         raise OutOfStockException("Item is out of stock")
 
                     total_added += 1
