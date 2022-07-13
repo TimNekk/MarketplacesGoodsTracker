@@ -18,8 +18,7 @@ class App:
         self.sheets = Sheets(credentials)
 
     def get_items(self) -> List[Item]:
-        # urls = self.fix_redirects_and_query(self.sheets.get_urls() + [""])
-        urls = self.sheets.get_urls() + [""]
+        urls = self.fix_redirects_and_query(self.sheets.get_urls() + [""])
         logger.debug(f'Got urls: {urls}')
 
         items = []
