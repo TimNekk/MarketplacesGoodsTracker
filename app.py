@@ -27,14 +27,19 @@ class App:
         with Parser() as parser:
             for url in urls:
                 try:
-                    while True:
+                    attempts = 3
+                    while attempts:
                         cart_amount = parser.add_to_cart(url)
 
                         if cart_amount != cart_amount_old + 1:
+                            attempts -= 1
                             continue
 
                         cart_amount_old = cart_amount
                         break
+
+                    if cart_amount != cart_amount_old + 1:
+                        raise OutOfStockException("Item is out of stock")
 
                     total_added += 1
                     logger.info(f"Added! (Total: {total_added})")
