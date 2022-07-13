@@ -18,7 +18,8 @@ class App:
         self.sheets = Sheets(credentials)
 
     def get_items(self) -> List[Item]:
-        urls = self.fix_redirects_and_query(self.sheets.get_urls() + [""])
+        # urls = self.fix_redirects_and_query(self.sheets.get_urls() + [""])
+        urls = self.sheets.get_urls() + [""]
         logger.debug(f'Got urls: {urls}')
 
         items = []
@@ -30,10 +31,11 @@ class App:
                     while True:
                         cart_amount = parser.add_to_cart(url)
 
-                        if cart_amount == cart_amount_old + 1:
-                            cart_amount_old = cart_amount
-                        else:
-                            break
+                        if cart_amount != cart_amount_old + 1:
+                            continue
+
+                        cart_amount_old = cart_amount
+                        break
 
                     total_added += 1
                     logger.info(f"Added! (Total: {total_added})")
