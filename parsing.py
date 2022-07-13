@@ -124,7 +124,12 @@ class Parser:
             except:
                 pass
 
-        WebDriverWait(self._driver, 3).until(lambda driver: driver.current_url != url)
+        logger.info(url)
+        try:
+            WebDriverWait(self._driver, 3).until(lambda driver: url in driver.current_url)
+        except TimeoutError:
+            pass
+        logger.info(self._driver.current_url)
         return self._driver.current_url
 
     @staticmethod
