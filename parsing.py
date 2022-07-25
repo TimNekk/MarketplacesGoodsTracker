@@ -6,7 +6,7 @@ from time import sleep
 from urllib.parse import urlsplit
 
 from selenium import webdriver
-from selenium.common.exceptions import InvalidArgumentException
+from selenium.common.exceptions import InvalidArgumentException, TimeoutException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
@@ -127,7 +127,7 @@ class Parser:
 
         try:
             WebDriverWait(self._driver, 3).until(lambda driver: url in driver.current_url)
-        except TimeoutError:
+        except TimeoutException:
             pass
         return self._driver.current_url
 
