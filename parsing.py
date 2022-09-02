@@ -1,18 +1,17 @@
 import json
-import logging
 import re
 from collections.abc import Iterable, Collection
 from time import sleep
 from urllib.parse import urlsplit
 
-from selenium import webdriver
+import undetected_chromedriver
 from selenium.common.exceptions import InvalidArgumentException, TimeoutException
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.webdriver import WebDriver
+from selenium.webdriver.chromium.options import ChromiumOptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
-from webdriver_manager.chrome import ChromeDriverManager
 
+from encoder import QuotEncoder
 from item import Item
 from logger import logger
 from status import Status
@@ -31,19 +30,16 @@ class Parser:
 
     @staticmethod
     def _get_driver() -> WebDriver:
-        options = webdriver.ChromeOptions()
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
-        options.add_experimental_option('excludeSwitches', ['enable-logging'])
-        options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})
+        options = ChromiumOptions()
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-automation")
         options.add_argument('--disable-infobars')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-browser-side-navigation')
+        options.add_argument('--blink-settings=imagesEnabled=false')
         options.binary_location = "C:\Program Files\Google\Chrome Beta\Application\chrome.exe"
-        return webdriver.Chrome(service=Service(ChromeDriverManager("104.0.5112.29", log_level=logging.DEBUG).install()), options=options)
+        return undetected_chromedriver.Chrome(options=options, suppress_welcome=False)
 
     def add_to_cart(self, url: str) -> int:
         logger.info(f"Adding to cart: {url}...")
@@ -55,12 +51,7 @@ class Parser:
             raise WrongUrlException(f"Wrong url passed ({url})")
 
         logger.debug("Checking if item is out of stock...")
-        out_of_stock_buttons = list(filter(lambda button: button.text == "Узнать о поступлении", self._driver.find_elements(By.TAG_NAME, "button")))
-        if out_of_stock_buttons:
-            for button in out_of_stock_buttons:
-                button.screenshot(f"logs/out_of_stock_{button.id}.png")
-                self._driver.save_screenshot(f"logs/out_of_stock_{button.id}_full.png")
-                logger.debug(f"Screenshot saved to logs/out_of_stock_{button.id}")
+        if "ozon.ru/search" in self._driver.current_url:
             raise OutOfStockException("Item is out of stock")
 
         logger.debug("Getting add to cart button...")
@@ -70,6 +61,8 @@ class Parser:
             add_to_card_button = list(filter(lambda button: button.text == "В корзину", self._driver.find_elements(By.TAG_NAME, "button")))[1]
 
         logger.debug("Clicking add to cart button...")
+        # Waiting for add to cart button to be clickable
+        WebDriverWait(self._driver, 3).until(lambda driver: add_to_card_button.is_displayed())
         add_to_card_button.click()
 
         sleep(1)
@@ -78,17 +71,24 @@ class Parser:
     def get_cart(self) -> Collection[Item]:
         logger.debug("Getting cart...")
 
-        self._driver.get(self._cart)
+        while True:
+            self._driver.get(self._cart)
 
-        page_source = self._driver.page_source
+            page_source = self._driver.page_source
 
-        logger.debug("Parsing page source...")
-        json_string = str(re.findall(r"JSON.parse\('(.*?)'\)", page_source)[0])
+            logger.debug("Parsing page source...")
+            try:
+                json_string = str(re.findall(r"'({.*?trackingPayloads.*?})'", page_source)[0])
+            except IndexError:
+                sleep(5)
+                continue
+            break
+
         json_string = json_string.replace("\\\\", "\\")
         json_string = re.sub(r"\\n", "", json_string)
 
         logger.debug("Parsing json...")
-        data = json.loads(json_string)
+        data = json.loads(json_string, cls=QuotEncoder)
 
         logger.debug("Getting cart id...")
         cart_id: str = re.findall(r"group_in_cart(.*?):&quot;(.*?)&quot;}", page_source)[0][1]
@@ -98,7 +98,7 @@ class Parser:
     def _parse_cart_json(response_json, cart_id: str) -> Iterable[Item]:
         logger.debug("Parsing cart json...")
 
-        cart_json: str = response_json.get("state").get("trackingPayloads").get(cart_id)
+        cart_json: str = response_json.get("trackingPayloads").get(cart_id)
         items_json = json.loads(cart_json).get("items")
 
         items: list[Item] = []
@@ -147,4 +147,5 @@ class WrongUrlException(Exception):
 if __name__ == "__main__":
     with Parser() as parser:
         parser.add_to_cart(input())
+        sleep(1)
         print(parser.get_cart())
