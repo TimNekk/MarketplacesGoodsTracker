@@ -67,7 +67,7 @@ class App:
                 urls[index] = parser.remove_query_from_url(urls[index])
                 redirect = parser.get_redirect(urls[index])
 
-                if redirect != urls[index]:
+                if redirect != urls[index] and "ozon.ru/search/" not in redirect:
                     urls[index] = parser.remove_query_from_url(redirect)
 
                 if old_url != urls[index]:
