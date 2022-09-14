@@ -64,9 +64,9 @@ class Parser:
         # Waiting for add to cart button to be clickable
         WebDriverWait(self._driver, 3).until(lambda driver: add_to_card_button.is_displayed())
         add_to_card_button.click()
-
         sleep(1)
-        return int(self._driver.find_elements(By.CLASS_NAME, "tsCaptionBold")[3].text)
+        card_count = int(list(filter(lambda element: element.text.isdigit(), self._driver.find_elements(By.CLASS_NAME, "tsCaptionBold")))[-1].text)
+        return card_count
 
     def get_cart(self) -> Collection[Item]:
         logger.debug("Getting cart...")
