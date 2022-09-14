@@ -66,7 +66,7 @@ class Parser:
         add_to_card_button.click()
 
         sleep(1)
-        return int(self._driver.find_elements(By.CLASS_NAME, "tsCaptionBold")[-1].text)
+        return int(self._driver.find_elements(By.CLASS_NAME, "tsCaptionBold")[3].text)
 
     def get_cart(self) -> Collection[Item]:
         logger.debug("Getting cart...")
@@ -98,7 +98,7 @@ class Parser:
     def _parse_cart_json(response_json, cart_id: str) -> Iterable[Item]:
         logger.debug("Parsing cart json...")
 
-        cart_json: str = response_json.get("trackingPayloads").get(cart_id)
+        cart_json: str = response_json.get("state").get("trackingPayloads").get(cart_id)
         items_json = json.loads(cart_json).get("items")
 
         items: list[Item] = []
