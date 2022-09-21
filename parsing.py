@@ -98,7 +98,11 @@ class Parser:
     def _parse_cart_json(response_json, cart_id: str) -> Iterable[Item]:
         logger.debug("Parsing cart json...")
 
-        cart_json: str = response_json.get("state").get("trackingPayloads").get(cart_id)
+        try:
+            cart_json: str = response_json.get("trackingPayloads").get(cart_id)
+        except KeyError:
+            cart_json: str = response_json.get("state").get("trackingPayloads").get(cart_id)
+
         items_json = json.loads(cart_json).get("items")
 
         items: list[Item] = []
