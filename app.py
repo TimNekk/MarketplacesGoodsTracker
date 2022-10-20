@@ -1,4 +1,4 @@
-import sys
+from argparse import ArgumentParser, BooleanOptionalAction
 from time import sleep
 from typing import List
 
@@ -17,8 +17,10 @@ class App:
     def __init__(self, credentials: ServiceAccountCredentials):
         self.sheets = Sheets(credentials)
 
-    def get_items(self) -> List[Item]:
-        urls = self.fix_redirects_and_query(self.sheets.get_urls() + [""])
+    def get_items(self, fix_redirects: bool = True) -> List[Item]:
+        urls = self.sheets.get_urls() + [""]
+        if fix_redirects:
+            urls = self.fix_redirects_and_query(urls)
         logger.debug(f'Got urls: {urls}')
 
         items = []
@@ -75,12 +77,12 @@ class App:
 
         return urls
 
-    def update(self):
+    def update(self, fix_redirects: bool = True):
         try:
             logger.info("Getting items...")
             while True:
                 try:
-                    items = self.get_items()
+                    items = self.get_items(fix_redirects)
                     logger.debug("\n".join(map(str, items)))
                     break
                 except Exception as e:
@@ -101,16 +103,24 @@ class App:
 
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    logger.debug(f"App started with args: {args}")
+    parser = ArgumentParser()
+    parser.add_argument("-u", "--update-after-launch",
+                        help="Updates immediately, ignoring schedule",
+                        action="store_true")
+    parser.add_argument('--fix-redirects',
+                        help='Enables redirects fixing',
+                        action=BooleanOptionalAction,
+                        default=True)
+    args = parser.parse_args()
 
     app = App(CREDENTIAL)
     logger.debug("App initialized")
 
-    if len(args) < 1 or args[0] != "0":
-        app.update()
+    schedule.every().day.at("07:00").do(app.update, args.fix_redirects)
 
-    schedule.every().day.at("07:00").do(app.update)
+    if args.update_after_launch:
+        app.update(args.fix_redirects)
+
     while True:
         schedule.run_pending()
         sleep(1)
