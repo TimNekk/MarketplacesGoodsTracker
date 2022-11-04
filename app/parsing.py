@@ -12,10 +12,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from encoder import QuotEncoder
-from item import Item
-from logger import logger
-from status import Status
+from .models import Item, Status
+from .utils import logger, QuotEncoder
 
 
 class Parser:

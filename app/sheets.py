@@ -4,9 +4,8 @@ from typing import List
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-from item import Item
-from logger import logger
-from status import Status
+from .models import Item, Status
+from .utils import logger
 
 
 class Sheets:

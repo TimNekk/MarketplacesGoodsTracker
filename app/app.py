@@ -1,16 +1,12 @@
-from argparse import ArgumentParser, BooleanOptionalAction
 from time import sleep
 from typing import List
 
-import schedule
 from oauth2client.service_account import ServiceAccountCredentials
 
-from config import CREDENTIAL
-from item import Item
-from logger import logger
-from status import Status
-from parsing import Parser, OutOfStockException, WrongUrlException
-from sheets import Sheets
+from .models import Item, Status
+from .utils import logger
+from .parsing import Parser, OutOfStockException, WrongUrlException
+from .sheets import Sheets
 
 
 class App:
@@ -100,27 +96,3 @@ class App:
             logger.info("Done exporting!")
         except Exception as e:
             logger.exception(e)
-
-
-if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("-u", "--update-after-launch",
-                        help="Updates immediately, ignoring schedule",
-                        action="store_true")
-    parser.add_argument('--fix-redirects',
-                        help='Enables redirects fixing',
-                        action=BooleanOptionalAction,
-                        default=True)
-    args = parser.parse_args()
-
-    app = App(CREDENTIAL)
-    logger.debug("App initialized")
-
-    schedule.every().day.at("07:00").do(app.update, args.fix_redirects)
-
-    if args.update_after_launch:
-        app.update(args.fix_redirects)
-
-    while True:
-        schedule.run_pending()
-        sleep(1)
