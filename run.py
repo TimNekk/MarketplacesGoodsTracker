@@ -1,4 +1,4 @@
-from argparse import ArgumentParser, BooleanOptionalAction
+from argparse import ArgumentParser, BooleanOptionalAction, Namespace
 from time import sleep
 
 import schedule
@@ -8,8 +8,9 @@ from app.utils import logger
 from app import App
 
 
-if __name__ == "__main__":
+def parse_args() -> Namespace:
     parser = ArgumentParser()
+
     parser.add_argument("-u", "--update-after-launch",
                         help="Updates immediately, ignoring schedule",
                         action="store_true")
@@ -17,7 +18,12 @@ if __name__ == "__main__":
                         help='Enables redirects fixing',
                         action=BooleanOptionalAction,
                         default=True)
-    args = parser.parse_args()
+
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
 
     app = App(CREDENTIAL)
     logger.debug("App initialized")
@@ -30,3 +36,7 @@ if __name__ == "__main__":
     while True:
         schedule.run_pending()
         sleep(1)
+
+
+if __name__ == "__main__":
+    main()
