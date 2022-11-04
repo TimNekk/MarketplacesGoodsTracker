@@ -2,43 +2,22 @@ import json
 import re
 from collections.abc import Iterable, Collection
 from time import sleep
-from urllib.parse import urlsplit
 
-import undetected_chromedriver
 from selenium.common.exceptions import InvalidArgumentException, TimeoutException
-from selenium.webdriver.chrome.webdriver import WebDriver
-from selenium.webdriver.chromium.options import ChromiumOptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 from src.models import Item, Status
+from src.parsing.exceptions import WrongUrlException, OutOfStockException
+from src.parsing.item_parser import ItemParser
+from src.parsing.selenium_parser import SeleniumParser
 from src.utils import logger, QuotEncoder
 
 
-class Parser:
+class OzonParser(ItemParser, SeleniumParser):
     def __init__(self) -> None:
         self._cart = "https://www.ozon.ru/cart"
-
-    def __enter__(self):
-        self._driver = self._get_driver()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._driver.quit()
-
-    @staticmethod
-    def _get_driver() -> WebDriver:
-        options = ChromiumOptions()
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-automation")
-        options.add_argument('--disable-infobars')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-browser-side-navigation')
-        options.add_argument('--blink-settings=imagesEnabled=false')
-        options.binary_location = r"C:\Program Files\Google\Chrome Beta\Application\chrome.exe"
-        return undetected_chromedriver.Chrome(options=options, suppress_welcome=False)
 
     def add_to_cart(self, url: str) -> int:
         logger.info(f"Adding to cart: {url}...")
@@ -66,6 +45,7 @@ class Parser:
     def get_cart(self) -> Collection[Item]:
         logger.debug("Getting cart...")
 
+        json_string = None
         while True:
             self._driver.get(self._cart)
 
@@ -117,35 +97,50 @@ class Parser:
     def get_item_id_from_url(url: str) -> str:
         return re.findall(r"product(.*)-(\d+)\/", url)[0][1]
 
-    def get_redirect(self, url: str) -> str:
-        while True:
-            try:
-                self._driver.get(url)
-                break
-            except Exception as e:
-                logger.warning(f"Error while getting redirect: {e}")
-
-        try:
-            WebDriverWait(self._driver, 3).until(lambda driver: url in driver.current_url)
-        except TimeoutException:
-            pass
-        return self._driver.current_url
-
     @staticmethod
-    def remove_query_from_url(url: str) -> str:
-        return urlsplit(url)._replace(query=None).geturl()
+    def get_items(urls: list[str]) -> list[Item]:
+        items = []
+        total_added = 0
+        cart_amount_old = 0
+        with OzonParser() as parser:
+            for url in urls:
+                try:
+                    attempts = 3
+                    while attempts:
+                        cart_amount = parser.add_to_cart(url)
+
+                        if cart_amount != cart_amount_old + 1:
+                            attempts -= 1
+                            continue
+
+                        cart_amount_old = cart_amount
+                        break
+
+                    if attempts == 0:
+                        raise OutOfStockException("Item is out of stock")
+
+                    total_added += 1
+                    logger.info(f"Added! (Total: {total_added})")
+                except WrongUrlException as e:
+                    logger.debug(e)
+                except OutOfStockException as e:
+                    logger.info(e)
+                    total_added += 1
+                    logger.info(f"Added! (Total: {total_added})")
+                    items.append(Item(id=parser.get_item_id_from_url(url), status=Status.OUT_OF_STOCK))
+
+            items += parser.get_cart()
+
+        logger.info("Done parsing!")
+        return items
 
 
-class OutOfStockException(Exception):
-    pass
-
-
-class WrongUrlException(Exception):
-    pass
-
-
-if __name__ == "__main__":
-    with Parser() as parser:
+def test_run():
+    with OzonParser() as parser:
         parser.add_to_cart(input())
         sleep(1)
         print(parser.get_cart())
+
+
+if __name__ == "__main__":
+    test_run()
