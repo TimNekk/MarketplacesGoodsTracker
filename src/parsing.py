@@ -12,8 +12,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from .models import Item, Status
-from .utils import logger, QuotEncoder
+from src.models import Item, Status
+from src.utils import logger, QuotEncoder
 
 
 class Parser:
@@ -37,7 +37,7 @@ class Parser:
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-browser-side-navigation')
         options.add_argument('--blink-settings=imagesEnabled=false')
-        options.binary_location = "C:\Program Files\Google\Chrome Beta\Application\chrome.exe"
+        options.binary_location = r"C:\Program Files\Google\Chrome Beta\Application\chrome.exe"
         return undetected_chromedriver.Chrome(options=options, suppress_welcome=False)
 
     def add_to_cart(self, url: str) -> int:
@@ -73,6 +73,7 @@ class Parser:
 
             logger.debug("Parsing page source...")
             try:
+                print(page_source)
                 json_string = str(re.findall(r"'({.*?trackingPayloads.*?})'", page_source)[0])
             except IndexError:
                 sleep(5)
@@ -96,7 +97,7 @@ class Parser:
         try:
             cart_json: str = response_json.get("trackingPayloads").get(cart_id)
         except AttributeError:
-            cart_json: str = response_json.get("state").get("trackingPayloads").get(cart_id)
+            cart_json = response_json.get("state").get("trackingPayloads").get(cart_id)
 
         items_json = json.loads(cart_json).get("items")
 
@@ -121,8 +122,8 @@ class Parser:
             try:
                 self._driver.get(url)
                 break
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Error while getting redirect: {e}")
 
         try:
             WebDriverWait(self._driver, 3).until(lambda driver: url in driver.current_url)
