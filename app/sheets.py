@@ -25,7 +25,8 @@ class Sheets:
 
     def set_items(self, items: List[Item]):
         offset = self._get_top_offset()
-        quantities, prices = [""] * offset + [datetime.now().strftime("%d/%m - %H:%M")], [""] * (offset + 1)
+        quantities = [""] * offset + [datetime.now().strftime("%d/%m - %H:%M")]
+        prices = [""] * (offset + 1)
 
         urls = self.get_urls()
         for url in urls:
@@ -36,10 +37,10 @@ class Sheets:
                     continue
 
                 if item.status == Status.OK:
-                    quantities.append(item.quantity)
-                    prices.append(item.price)
+                    quantities.append(str(item.quantity))
+                    prices.append(str(item.price))
                 else:
-                    quantities.append(item.status.value)
+                    quantities.append(str(item.status.value))
                     prices.append("")
                 added = True
                 break
