@@ -3,9 +3,9 @@ from time import sleep
 
 import schedule
 
-from app.config import CREDENTIAL
-from app.utils import logger
-from app import App
+from src.config import CREDENTIAL
+from src.utils import logger
+from src import App
 
 
 def parse_args() -> Namespace:

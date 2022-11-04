@@ -3,10 +3,10 @@ from typing import List
 
 from oauth2client.service_account import ServiceAccountCredentials
 
-from .models import Item, Status
-from .utils import logger
-from .parsing import Parser, OutOfStockException, WrongUrlException
-from .sheets import Sheets
+from src.models import Item, Status
+from src.utils import logger
+from src.parsing import Parser, OutOfStockException, WrongUrlException
+from src.sheets import Sheets
 
 
 class App:
