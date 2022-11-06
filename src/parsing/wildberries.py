@@ -7,6 +7,8 @@ from src.parsing import ItemParser
 
 
 class WildberriesParser(ItemParser):
+    SALE_AMOUNT = 27
+
     @staticmethod
     def get_items(urls: list[str]) -> list[Item]:
         items = []
@@ -16,9 +18,14 @@ class WildberriesParser(ItemParser):
 
             with Session() as session:
                 card_url = "https://card.wb.ru/cards/detail"
-                params = {"nm": code}
+                params = {
+                    "nm": code,
+                    "spp": WildberriesParser.SALE_AMOUNT
+                }
                 response = session.get(card_url, params=params)
-                option_id = response.json().get("data").get("products")[0].get("sizes")[0].get("optionId")
+                good = response.json().get("data").get("products")[0]
+                option_id = good.get("sizes")[0].get("optionId")
+                price = int(good.get("salePriceU") / 100)
 
                 cart_url = "https://ru-basket-api.wildberries.ru/webapi/lk/basket/data"
                 data = {
@@ -27,11 +34,11 @@ class WildberriesParser(ItemParser):
                 }
                 response = session.post(cart_url, data=data)
 
-            good = response.json().get("value").get("data").get("basket").get("basketItems")[0]
+            quantity = int(response.json().get("value").get("data").get("basket").get("basketItems")[0].get("maxQuantity"))
             item = Item(
                 id=code,
-                quantity=int(good.get("maxQuantity")),
-                price=int(good.get("price")),
+                quantity=quantity,
+                price=price,
                 status=Status.OK,
             )
             items.append(item)
