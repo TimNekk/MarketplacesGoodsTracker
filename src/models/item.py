@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from status import Status
+from src.models.status import Status
 
 
 @dataclass
