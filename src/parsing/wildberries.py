@@ -4,6 +4,7 @@ from requests import Session
 
 from src.models import Item, Status
 from src.parsing import ItemParser
+from src.utils import logger
 
 
 class WildberriesParser(ItemParser):
@@ -14,6 +15,8 @@ class WildberriesParser(ItemParser):
         items = []
 
         for url in urls:
+            logger.info(f"Getting item from \"{url}\"...")
+
             code = re.findall(r"catalog\/(\d+)", url)[0]
 
             with Session() as session:
@@ -42,6 +45,8 @@ class WildberriesParser(ItemParser):
                 status=Status.OK,
             )
             items.append(item)
+
+            logger.info(f"Got item: {item}")
 
         return items
 
