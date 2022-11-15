@@ -1,11 +1,10 @@
 from time import sleep
-from typing import List, Type
 
 from oauth2client.service_account import ServiceAccountCredentials
 
 from src.models import Item
 from src.utils import logger
-from src.parsing import ItemParser, OzonParser, RedirectParser
+from src.parsing import ItemParser, OzonParser, RedirectParser, WildberriesParser
 from src.sheets import Sheets
 
 
@@ -13,16 +12,29 @@ class App:
     def __init__(self, credentials: ServiceAccountCredentials):
         self.sheets = Sheets(credentials)
 
-    def get_items(self, fix_redirects: bool = True) -> List[Item]:
+    def get_items(self, fix_redirects: bool = True) -> list[Item]:
         urls = self.sheets.get_urls() + [""]
         if fix_redirects:
             urls = self.fix_redirects_and_query(urls)
         logger.debug(f'Got urls: {urls}')
 
-        parser: ItemParser = Type[OzonParser]
-        return parser.get_items(urls)
+        sorted_urls: dict[type[ItemParser], list[str]] = {
+            WildberriesParser: [url for url in urls if "wildberries.ru" in url],
+            OzonParser: [url for url in urls if "ozon.ru" in url]
+        }
 
-    def fix_redirects_and_query(self, urls: List[str]) -> List[str]:
+        items = []
+        for parser, urls in sorted_urls.items():
+            if not urls:
+                continue
+
+            logger.info(f"Getting items from {parser.__name__}...")
+            item = parser.get_items(urls)
+            items.extend(item)
+
+        return items
+
+    def fix_redirects_and_query(self, urls: list[str]) -> list[str]:
         logger.info("Fixing redirects...")
         with RedirectParser() as parser:
             for index, old_url in enumerate(urls):
@@ -52,7 +64,7 @@ class App:
                 except Exception as e:
                     logger.exception(e)
 
-            logger.info("Exporting...\n")
+            logger.info("Exporting...")
             while True:
                 try:
                     self.sheets.set_items(items)
