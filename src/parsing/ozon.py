@@ -53,7 +53,6 @@ class OzonParser(ItemParser, SeleniumParser):
 
             logger.debug("Parsing page source...")
             try:
-                print(page_source)
                 json_string = str(re.findall(r"'({.*?trackingPayloads.*?})'", page_source)[0])
             except IndexError:
                 sleep(5)
