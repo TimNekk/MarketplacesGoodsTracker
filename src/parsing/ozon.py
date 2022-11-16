@@ -20,7 +20,7 @@ class OzonParser(ItemParser, SeleniumParser):
         self._cart = "https://www.ozon.ru/cart"
 
     def add_to_cart(self, url: str) -> int:
-        logger.info(f"Adding to cart: {url}...")
+        logger.debug(f"Adding to cart...")
 
         try:
             logger.debug("Getting page source...")
@@ -38,11 +38,7 @@ class OzonParser(ItemParser, SeleniumParser):
         except TimeoutException:
             WebDriverWait(self._driver, 3).until(EC.element_to_be_clickable((By.XPATH, "(//span[text()='В корзину'])[2]"))).click()
 
-        sleep(1)
-        card_count = int(list(filter(lambda element: element.text.isdigit(), self._driver.find_elements(By.CLASS_NAME, "tsCaptionBold")))[-1].text)
-        return card_count
-
-    def get_cart(self) -> Collection[Item]:
+    def get_cart(self) -> list[Item]:
         logger.debug("Getting cart...")
 
         json_string = None
@@ -99,38 +95,34 @@ class OzonParser(ItemParser, SeleniumParser):
     @staticmethod
     def get_items(urls: list[str]) -> list[Item]:
         items = []
-        total_added = 0
-        cart_amount_old = 0
-        with OzonParser() as parser:
-            for url in urls:
+        for url in urls:
+            logger.info(f"Getting item from: {url}...")
+
+            attempts = 0
+            max_attempts = 3
+            while attempts < max_attempts:
                 try:
-                    attempts = 3
-                    while attempts:
-                        cart_amount = parser.add_to_cart(url)
+                    with OzonParser() as parser:
+                        try:
+                            parser.add_to_cart(url)
+                        except WrongUrlException as e:
+                            logger.debug(e)
+                            break
+                        except OutOfStockException as e:
+                            logger.info(e)
+                            items.append(Item(id=parser.get_item_id_from_url(url), status=Status.OUT_OF_STOCK))
+                            break
 
-                        if cart_amount != cart_amount_old + 1:
-                            attempts -= 1
-                            continue
+                        sleep(1)
+                        item = parser.get_cart()[0]
+                        items.append(item)
 
-                        cart_amount_old = cart_amount
+                        logger.info(f"Got item: {item}")
                         break
+                except Exception as e:
+                    logger.error(e)
+                    attempts += 1
 
-                    if attempts == 0:
-                        raise OutOfStockException("Item is out of stock")
-
-                    total_added += 1
-                    logger.info(f"Added! (Total: {total_added})")
-                except WrongUrlException as e:
-                    logger.debug(e)
-                except OutOfStockException as e:
-                    logger.info(e)
-                    total_added += 1
-                    logger.info(f"Added! (Total: {total_added})")
-                    items.append(Item(id=parser.get_item_id_from_url(url), status=Status.OUT_OF_STOCK))
-
-            items += parser.get_cart()
-
-        logger.info("Done parsing!")
         return items
 
 
