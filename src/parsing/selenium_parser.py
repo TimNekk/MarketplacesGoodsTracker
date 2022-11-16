@@ -11,7 +11,7 @@ class SeleniumParser(ABC):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._driver.quit()
+        self._driver.close()
 
     @staticmethod
     def _get_driver() -> WebDriver:
@@ -19,9 +19,13 @@ class SeleniumParser(ABC):
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-automation")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--dns-prefetch-disable")
+        options.add_argument("--disable-gpu")
         options.add_argument('--disable-infobars')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-browser-side-navigation')
         options.add_argument('--blink-settings=imagesEnabled=false')
+        options.page_load_strategy = 'normal'
         options.binary_location = r"C:\Program Files\Google\Chrome Beta\Application\chrome.exe"
         return undetected_chromedriver.Chrome(options=options, suppress_welcome=False)
