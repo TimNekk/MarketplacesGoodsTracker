@@ -19,8 +19,8 @@ class App:
         logger.debug(f'Got urls: {urls}')
 
         sorted_urls: dict[type[ItemParser], list[str]] = {
-            WildberriesParser: [url for url in urls if "wildberries.ru" in url],
-            OzonParser: [url for url in urls if "ozon.ru" in url]
+            OzonParser: [url for url in urls if "ozon.ru" in url],
+            WildberriesParser: [url for url in urls if "wildberries.ru" in url]
         }
 
         items = []
