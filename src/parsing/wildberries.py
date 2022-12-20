@@ -37,12 +37,19 @@ class WildberriesParser(ItemParser):
                 }
                 response = session.post(cart_url, data=data)
 
-            quantity = int(response.json().get("value").get("data").get("basket").get("basketItems")[0].get("stocks")[0].get("qty"))
+            status = Status.OUT_OF_STOCK
+            quantity = 0
+
+            stocks = response.json().get("value").get("data").get("basket").get("basketItems")[0].get("stocks")
+            if stocks:
+                quantity = int(stocks[0].get("qty"))
+                status = Status.OK
+
             item = Item(
                 id=code,
                 quantity=quantity,
                 price=price,
-                status=Status.OK,
+                status=status,
             )
             items.append(item)
 
@@ -52,8 +59,7 @@ class WildberriesParser(ItemParser):
 
 
 def test_run():
-    print(WildberriesParser.get_items(["https://www.wildberries.ru/catalog/79674981/detail.aspx?targetUrl=XS",
-                                       "https://www.wildberries.ru/catalog/79583779/detail.aspx?targetUrl=PB"]))
+    print(WildberriesParser.get_items(["https://www.wildberries.ru/catalog/41286685/detail.aspx"]))
 
 
 if __name__ == '__main__':
