@@ -37,7 +37,7 @@ class WildberriesParser(ItemParser):
                 }
                 response = session.post(cart_url, data=data)
 
-            quantity = int(response.json().get("value").get("data").get("basket").get("basketItems")[0].get("maxQuantity"))
+            quantity = int(response.json().get("value").get("data").get("basket").get("basketItems")[0].get("stocks")[0].get("qty"))
             item = Item(
                 id=code,
                 quantity=quantity,
