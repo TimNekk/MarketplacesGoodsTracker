@@ -61,26 +61,18 @@ class OzonParser(ItemParser, SeleniumParser):
         logger.debug("Parsing json...")
         data = json.loads(json_string, cls=QuotEncoder)
 
-        logger.debug("Getting cart id...")
-        cart_id: str = re.findall(r"group_in_cart(.*?):&quot;(.*?)&quot;}", page_source)[0][1]
-        return list(self._parse_cart_json(data, cart_id))
+        return list(self._parse_cart_json(data))
 
     @staticmethod
-    def _parse_cart_json(response_json, cart_id: str) -> Iterable[Item]:
+    def _parse_cart_json(response_json) -> Iterable[Item]:
         logger.debug("Parsing cart json...")
-
-        try:
-            cart_json: str = response_json.get("trackingPayloads").get(cart_id)
-        except AttributeError:
-            cart_json = response_json.get("state").get("trackingPayloads").get(cart_id)
-
-        items_json = json.loads(cart_json).get("items")
+        items_json = response_json.get("shared").get("itemsTrackingInfo")
 
         items: list[Item] = []
         for item_json in items_json:
             item = Item(
-                id=str(item_json.get("sku")),
-                quantity=item_json.get("maxQuantity"),
+                id=str(item_json.get("id")),
+                quantity=item_json.get("stockMaxQty"),
                 price=item_json.get("finalPrice"),
                 status=Status.OK
             )
