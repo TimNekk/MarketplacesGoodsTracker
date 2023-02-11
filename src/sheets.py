@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List
 
 import gspread
+from gspread.utils import ValueInputOption
 from oauth2client.service_account import ServiceAccountCredentials
 
 from src.models import Item, Status
@@ -14,6 +15,7 @@ class Sheets:
         self.workbook = self.client.open(workbook_name)
 
         self.sheet = self.workbook.sheet1
+        self.top_offset = self._get_top_offset()
 
     def _get_top_offset(self) -> int:
         logger.info("Getting top offset...")
@@ -21,12 +23,11 @@ class Sheets:
 
     def get_urls(self) -> List[str]:
         logger.info("Getting urls...")
-        return self.sheet.col_values(1)[(self._get_top_offset() + 1):]
+        return self.sheet.col_values(1)[(self.top_offset + 1):]
 
     def set_items(self, items: List[Item]):
-        offset = self._get_top_offset()
-        quantities = [""] * offset + [datetime.now().strftime("%d/%m - %H:%M")]
-        prices = [""] * (offset + 1)
+        quantities = [""] * self.top_offset + [datetime.now().strftime("%d/%m - %H:%M")]
+        prices = [""] * (self.top_offset + 1)
 
         urls = self.get_urls()
         for url in urls:
@@ -49,16 +50,25 @@ class Sheets:
                 quantities.append("")
                 prices.append("")
 
+        logger.debug("Removing previous colors...")
+        self._remove_formatting(f"E2:E{len(urls) + 1}")
+
         logger.debug("Inserting data...")
-        self.sheet.insert_cols([quantities, prices], col=3)
+        self.sheet.insert_cols([quantities, prices], col=4, value_input_option=ValueInputOption.user_entered)
 
         logger.debug("Adding borders...")
-        self.add_border(f"C1:D{len(urls) + 1}")
+        self._add_border(f"D1:E{len(urls) + 1}")
+
+        logger.debug("Formatting numbers...")
+        self._format_number(f"D2:E{len(urls) + 1}")
+
+        logger.debug("Coloring cells...")
+        self._color_cells(f"E2:E{len(urls) + 1}")
 
         logger.debug("Merging cells...")
-        self.sheet.merge_cells("C1:D1")
+        self.sheet.merge_cells("D1:E1")
 
-    def add_border(self, cells_range: str) -> None:
+    def _add_border(self, cells_range: str) -> None:
         first, second = cells_range.split(":")
         left, top, right, bottom = first[0], first[1:], second[0], second[1:]
         border = {"style": "SOLID"}
@@ -75,7 +85,45 @@ class Sheets:
         self.sheet.format(left + bottom, {"borders": {"left": border, "bottom": border}})
         self.sheet.format(right + bottom, {"borders": {"right": border, "bottom": border}})
 
+    def _format_number(self, cells_range: str) -> None:
+        first, second = cells_range.split(":")
+        left, top, right, bottom = first[0], first[1:], second[0], second[1:]
+
+        # Edges
+        self.sheet.format(cells_range, {"numberFormat": {"type": "NUMBER", "pattern": "# ###"}})
+
+    @staticmethod
+    def _number_literal_to_int(number_literal: str) -> int:
+        return int(number_literal.replace(" ", ""))
+
+    def _get_restrictions(self) -> list[int]:
+        logger.info("Getting restrictions...")
+        return list(map(
+            lambda n: self._number_literal_to_int(n) if n else 0,
+            self.sheet.col_values(3)[(self.top_offset + 1):]
+        ))
+
+    def _color_cells(self, cells_range: str) -> None:
+        restrictions = self._get_restrictions()
+
+        first, second = cells_range.split(":")
+        left, top, right, bottom = first[0], first[1:], second[0], second[1:]
+
+        for i, price in enumerate(self.sheet.col_values(5)[(self.top_offset + 1):]):
+            if not price:
+                continue
+
+            price = self._number_literal_to_int(price)
+            if price < restrictions[i]:
+                self.sheet.format(f"{left}{top}:{right}{top}",
+                                  {"textFormat": {"foregroundColor": {"red": 1}}})
+            top = str(int(top) + 1)
+
+    def _remove_formatting(self, cells_range: str) -> None:
+        self.sheet.format(cells_range, {"textFormat": {"foregroundColor": {}}})
+
     def replace_url(self, old_url: str, new_url: str):
         logger.info(f"Replacing {old_url} with {new_url}...")
         cell = self.sheet.find(old_url)
         self.sheet.update_cell(cell.row, cell.col, new_url)
+
