@@ -110,6 +110,9 @@ class Sheets:
         left, top, right, bottom = first[0], first[1:], second[0], second[1:]
 
         for i, price in enumerate(self.sheet.col_values(5)[(self.top_offset + 1):]):
+            if i >= len(restrictions):
+                break
+
             if not price:
                 continue
 
