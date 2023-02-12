@@ -97,7 +97,7 @@ class Sheets:
         return int(number_literal.replace(" ", ""))
 
     def _get_restrictions(self) -> list[int]:
-        logger.info("Getting restrictions...")
+        logger.debug("Getting restrictions...")
         return list(map(
             lambda n: self._number_literal_to_int(n) if n else 0,
             self.sheet.col_values(3)[(self.top_offset + 1):]
@@ -107,9 +107,10 @@ class Sheets:
         restrictions = self._get_restrictions()
 
         first, second = cells_range.split(":")
-        left, top, right, bottom = first[0], first[1:], second[0], second[1:]
+        left, top, right, _ = first[0], int(first[1:]), second[0], second[1:]
 
-        for i, price in enumerate(self.sheet.col_values(5)[(self.top_offset + 1):]):
+        prices = self.sheet.col_values(5)[(self.top_offset + 1):]
+        for i, price in enumerate(prices):
             if i >= len(restrictions):
                 break
 
@@ -118,9 +119,8 @@ class Sheets:
 
             price = self._number_literal_to_int(price)
             if price < restrictions[i]:
-                self.sheet.format(f"{left}{top}:{right}{top}",
+                self.sheet.format(f"{left}{i + top}:{right}{i + top}",
                                   {"textFormat": {"foregroundColor": {"red": 1}}})
-            top = str(int(top) + 1)
 
     def _remove_formatting(self, cells_range: str) -> None:
         self.sheet.format(cells_range, {"textFormat": {"foregroundColor": {}}})
