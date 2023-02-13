@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import List
+import re
 
 import gspread
 from gspread.utils import ValueInputOption
@@ -94,7 +95,7 @@ class Sheets:
 
     @staticmethod
     def _number_literal_to_int(number_literal: str) -> int:
-        return int(number_literal.replace(" ", ""))
+        return int(re.sub(r"\D", "", number_literal))
 
     def _get_restrictions(self) -> list[int]:
         logger.debug("Getting restrictions...")
