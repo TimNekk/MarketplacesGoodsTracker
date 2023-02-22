@@ -46,7 +46,7 @@ class WildberriesParser(ItemParser):
                 status = Status.OK
 
             item = Item(
-                id=code,
+                url=url,
                 quantity=quantity,
                 price=price,
                 status=status,

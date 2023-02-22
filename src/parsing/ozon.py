@@ -71,7 +71,6 @@ class OzonParser(ItemParser, SeleniumParser):
         items: list[Item] = []
         for item_json in items_json:
             item = Item(
-                id=str(item_json.get("id")),
                 quantity=item_json.get("stockMaxQty"),
                 price=item_json.get("finalPrice"),
                 status=Status.OK
@@ -79,10 +78,6 @@ class OzonParser(ItemParser, SeleniumParser):
             items.append(item)
 
         return items
-
-    @staticmethod
-    def get_item_id_from_url(url: str) -> str:
-        return re.findall(r"product(.*)-(\d+)\/", url)[0][1]
 
     @staticmethod
     def get_items(urls: list[str]) -> list[Item]:
@@ -102,11 +97,12 @@ class OzonParser(ItemParser, SeleniumParser):
                             break
                         except OutOfStockException as e:
                             logger.info(e)
-                            items.append(Item(id=parser.get_item_id_from_url(url), status=Status.OUT_OF_STOCK))
+                            items.append(Item(url=url, status=Status.OUT_OF_STOCK))
                             break
 
                         sleep(1)
                         item = parser.get_cart()[0]
+                        item.url = url
                         items.append(item)
 
                         logger.info(f"Got item: {item}")
