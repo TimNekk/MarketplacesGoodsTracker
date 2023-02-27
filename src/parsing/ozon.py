@@ -29,7 +29,7 @@ class OzonParser(ItemParser, SeleniumParser):
             raise WrongUrlException(f"Wrong url passed ({url})")
 
         logger.debug("Checking if item is out of stock...")
-        if "ozon.ru/search" in self._driver.current_url:
+        if "ozon.ru/search" in self._driver.current_url or "ozon.ru/category" in self._driver.current_url:
             raise OutOfStockException("Item is out of stock")
 
         logger.debug("Clicking add to cart button...")
