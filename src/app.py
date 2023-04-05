@@ -12,7 +12,7 @@ class App:
     def __init__(self, credentials: ServiceAccountCredentials):
         self.sheets = Sheets(credentials)
 
-    def get_items(self, fix_redirects: bool = True) -> list[Item]:
+    def get_items(self) -> list[Item]:
         urls = self.sheets.get_urls() + [""]
         logger.debug(f'Got urls: {urls}')
 
@@ -32,12 +32,12 @@ class App:
 
         return items
 
-    def update(self, fix_redirects: bool = True):
+    def update(self):
         try:
             logger.info("Getting items...")
             while True:
                 try:
-                    items = self.get_items(fix_redirects)
+                    items = self.get_items()
                     logger.debug("\n".join(map(str, items)))
                     break
                 except Exception as e:
