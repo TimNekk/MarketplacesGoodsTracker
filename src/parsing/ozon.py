@@ -20,7 +20,7 @@ class OzonParser(ItemParser, SeleniumParser):
         self._cart = "https://www.ozon.ru/cart"
 
     def add_to_cart(self, url: str) -> int:
-        logger.debug(f"Adding to cart...")
+        logger.debug("Adding to cart...")
 
         try:
             logger.debug("Getting page source...")
