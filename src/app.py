@@ -4,7 +4,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 from src.models import Item
 from src.utils import logger
-from src.parsing import ItemParser, OzonParser, RedirectParser, WildberriesParser
+from src.parsing import ItemParser, OzonParser, WildberriesParser
 from src.sheets import Sheets
 
 
@@ -12,10 +12,8 @@ class App:
     def __init__(self, credentials: ServiceAccountCredentials):
         self.sheets = Sheets(credentials)
 
-    def get_items(self, fix_redirects: bool = True) -> list[Item]:
+    def get_items(self) -> list[Item]:
         urls = self.sheets.get_urls() + [""]
-        if fix_redirects:
-            urls = self.fix_redirects_and_query(urls)
         logger.debug(f'Got urls: {urls}')
 
         sorted_urls: dict[type[ItemParser], list[str]] = {
@@ -34,31 +32,12 @@ class App:
 
         return items
 
-    def fix_redirects_and_query(self, urls: list[str]) -> list[str]:
-        logger.info("Fixing redirects...")
-        with RedirectParser() as parser:
-            for index, old_url in enumerate(urls):
-                if not old_url:
-                    continue
-
-                logger.debug(f"Checking \"{old_url}\"...")
-                urls[index] = parser.remove_query_from_url(urls[index])
-                redirect = parser.get_redirect(urls[index])
-
-                if redirect != urls[index] and "ozon.ru/search/" not in redirect:
-                    urls[index] = parser.remove_query_from_url(redirect)
-
-                if old_url != urls[index]:
-                    self.sheets.replace_url(old_url, urls[index])
-
-        return urls
-
-    def update(self, fix_redirects: bool = True):
+    def update(self):
         try:
             logger.info("Getting items...")
             while True:
                 try:
-                    items = self.get_items(fix_redirects)
+                    items = self.get_items()
                     logger.debug("\n".join(map(str, items)))
                     break
                 except Exception as e:

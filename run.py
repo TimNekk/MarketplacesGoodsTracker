@@ -14,10 +14,6 @@ def parse_args() -> Namespace:
     parser.add_argument("-u", "--update-after-launch",
                         help="Updates immediately, ignoring schedule",
                         action="store_true")
-    parser.add_argument('--fix-redirects',
-                        help='Enables redirects fixing',
-                        action=BooleanOptionalAction,
-                        default=True)
 
     return parser.parse_args()
 
@@ -28,15 +24,14 @@ def main() -> None:
     app = App(CREDENTIAL)
     logger.debug("App initialized")
 
-    schedule.every().day.at("07:00").do(app.update, args.fix_redirects)
+    schedule.every().day.at("07:00").do(app.update)
 
     if args.update_after_launch:
-        app.update(args.fix_redirects)
+        app.update()
 
     while True:
         schedule.run_pending()
         sleep(1)
-
 
 if __name__ == "__main__":
     try:

@@ -39,14 +39,13 @@ class WildberriesParser(ItemParser):
 
             status = Status.OUT_OF_STOCK
             quantity = 0
-
             stocks = response.json().get("value").get("data").get("basket").get("basketItems")[0].get("stocks")
             if stocks:
-                quantity = int(stocks[0].get("qty"))
+                quantity = sum([int(stock.get("qty")) for stock in stocks])
                 status = Status.OK
 
             item = Item(
-                id=code,
+                url=url,
                 quantity=quantity,
                 price=price,
                 status=status,

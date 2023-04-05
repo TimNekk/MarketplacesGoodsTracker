@@ -35,7 +35,7 @@ class Sheets:
             added = False
 
             for item in items:
-                if item.id not in url:
+                if item.url != url:
                     continue
 
                 if item.status == Status.OK:
