@@ -26,7 +26,12 @@ class WildberriesParser(ItemParser):
                     "spp": WildberriesParser.SALE_AMOUNT
                 }
                 response = session.get(card_url, params=params)
-                good = response.json().get("data").get("products")[0]
+                response_json = response.json()
+                
+                if not response_json.get("data").get("products"):
+                    continue
+
+                good = response_json.get("data").get("products")[0]
                 option_id = good.get("sizes")[0].get("optionId")
                 price = int(good.get("salePriceU") / 100)
 
