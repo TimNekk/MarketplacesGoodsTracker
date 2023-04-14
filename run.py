@@ -1,4 +1,4 @@
-from argparse import ArgumentParser, BooleanOptionalAction, Namespace
+from argparse import ArgumentParser, Namespace
 from time import sleep
 
 import schedule
