@@ -3,6 +3,7 @@
 chromedriver.exe
 creds.json
 logs/
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
