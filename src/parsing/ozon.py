@@ -66,12 +66,18 @@ class OzonParser(ItemParser, SeleniumParser):
     @staticmethod
     def _parse_cart_json(response_json) -> Iterable[Item]:
         logger.debug("Parsing cart json...")
-        items_json = response_json.get("shared").get("itemsTrackingInfo")
+        tracking_payloads: dict[str, str] = response_json.get("trackingPayloads")
+
+        json_payload = None
+        for payload in tracking_payloads.values():
+            json_payload = json.loads(payload)
+            if "products" in json_payload:
+                break
 
         items: list[Item] = []
-        for item_json in items_json:
+        for item_json in json_payload.get("products"):
             item = Item(
-                quantity=item_json.get("stockMaxQty"),
+                quantity=item_json.get("availability"),
                 price=item_json.get("finalPrice"),
                 status=Status.OK
             )
