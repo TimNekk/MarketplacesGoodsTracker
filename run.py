@@ -33,6 +33,7 @@ def main() -> None:
         schedule.run_pending()
         sleep(1)
 
+
 if __name__ == "__main__":
     try:
         main()
