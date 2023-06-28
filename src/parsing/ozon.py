@@ -19,7 +19,7 @@ class OzonParser(ItemParser, SeleniumParser):
     def __init__(self) -> None:
         self._cart = "https://www.ozon.ru/cart"
 
-    def add_to_cart(self, url: str) -> int:
+    def add_to_cart(self, url: str) -> None:
         logger.debug("Adding to cart...")
 
         try:
