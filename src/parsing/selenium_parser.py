@@ -27,5 +27,5 @@ class SeleniumParser(ABC):
         options.add_argument('--disable-browser-side-navigation')
         options.add_argument('--blink-settings=imagesEnabled=false')
         options.page_load_strategy = 'normal'
-        options.binary_location = r"C:\Program Files\Google\Chrome Beta\Application\chrome.exe"
+        options.binary_location = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
         return undetected_chromedriver.Chrome(options=options, suppress_welcome=False)
