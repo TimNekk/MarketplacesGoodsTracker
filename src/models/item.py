@@ -9,3 +9,4 @@ class Item:
     quantity: int = 0
     price: int = 0
     status: Status = Status.DEFAULT
+    green_price: int | None = None
