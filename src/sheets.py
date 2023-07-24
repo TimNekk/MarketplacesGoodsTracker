@@ -29,6 +29,7 @@ class Sheets:
     def set_items(self, items: List[Item]):
         quantities = [""] * self.top_offset + [datetime.now().strftime("%d/%m - %H:%M")]
         prices = [""] * (self.top_offset + 1)
+        green_prices = [False] * (self.top_offset + 1)
 
         urls = self.get_urls()
         for url in urls:
@@ -40,16 +41,23 @@ class Sheets:
 
                 if item.status == Status.OK:
                     quantities.append(str(item.quantity))
-                    prices.append(str(item.price))
+                    if item.green_price:
+                        prices.append(str(item.green_price))
+                        green_prices.append(True)
+                    else:
+                        prices.append(str(item.price))
+                        green_prices.append(False)
                 else:
                     quantities.append(str(item.status.value))
                     prices.append("")
+                    green_prices.append(False)
                 added = True
                 break
 
             if not added:
                 quantities.append("")
                 prices.append("")
+                green_prices.append(False)
 
         logger.debug("Removing previous colors...")
         self._remove_formatting(f"E2:E{len(urls) + 1}")
@@ -63,8 +71,11 @@ class Sheets:
         logger.debug("Formatting numbers...")
         self._format_number(f"D2:E{len(urls) + 1}")
 
-        logger.debug("Coloring cells...")
-        self._color_cells(f"E2:E{len(urls) + 1}")
+        logger.debug("Coloring red cells...")
+        self._color_red_cells(f"E2:E{len(urls) + 1}")
+
+        logger.debug("Coloring green cells...")
+        self._color_green_cells(f"E2:E{len(urls) + 1}", green_prices)
 
         logger.debug("Merging cells...")
         self.sheet.merge_cells("D1:E1")
@@ -87,9 +98,6 @@ class Sheets:
         self.sheet.format(right + bottom, {"borders": {"right": border, "bottom": border}})
 
     def _format_number(self, cells_range: str) -> None:
-        first, second = cells_range.split(":")
-        left, top, right, bottom = first[0], first[1:], second[0], second[1:]
-
         # Edges
         self.sheet.format(cells_range, {"numberFormat": {"type": "NUMBER", "pattern": "# ###"}})
 
@@ -104,7 +112,7 @@ class Sheets:
             self.sheet.col_values(3)[(self.top_offset + 1):]
         ))
 
-    def _color_cells(self, cells_range: str) -> None:
+    def _color_red_cells(self, cells_range: str) -> None:
         restrictions = self._get_restrictions()
 
         first, second = cells_range.split(":")
@@ -121,13 +129,51 @@ class Sheets:
             price = self._number_literal_to_int(price)
             if price < restrictions[i]:
                 self.sheet.format(f"{left}{i + top}:{right}{i + top}",
-                                  {"textFormat": {"foregroundColor": {"red": 1}}})
+                                  {
+                                      "textFormat":
+                                          {
+                                              "foregroundColor":
+                                                  {
+                                                      "red": 0.8
+                                                  },
+                                              "bold": True
+                                          },
+                                  })
+
+    def _color_green_cells(self, cells_range: str, green_prices: list[bool]) -> None:
+        first, second = cells_range.split(":")
+        left, top, right, _ = first[0], int(first[1:]) - 1, second[0], second[1:]
+
+        for i, green_price in enumerate(green_prices):
+            if not green_price:
+                continue
+
+            self.sheet.format(f"{left}{i + top}:{right}{i + top}",
+                              {
+                                  "backgroundColor":
+                                      {
+                                          "red": 0.85,
+                                          "green": 0.91,
+                                          "blue": 0.82
+                                      }
+                              })
 
     def _remove_formatting(self, cells_range: str) -> None:
-        self.sheet.format(cells_range, {"textFormat": {"foregroundColor": {}}})
+        self.sheet.format(cells_range,
+                          {
+                              "textFormat":
+                                  {
+                                      "foregroundColor": {},
+                                      "bold": False
+                                  },
+                              "backgroundColor": {
+                                  "red": 1,
+                                  "green": 1,
+                                  "blue": 1
+                              }
+                          })
 
     def replace_url(self, old_url: str, new_url: str):
         logger.info(f"Replacing {old_url} with {new_url}...")
         cell = self.sheet.find(old_url)
         self.sheet.update_cell(cell.row, cell.col, new_url)
-
