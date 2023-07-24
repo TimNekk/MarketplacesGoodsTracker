@@ -19,7 +19,7 @@ class OzonParser(ItemParser, SeleniumParser):
     def __init__(self) -> None:
         self._cart = "https://www.ozon.ru/cart"
 
-    def add_to_cart(self, url: str) -> int:
+    def add_to_cart(self, url: str) -> None:
         logger.debug("Adding to cart...")
 
         try:
@@ -38,7 +38,7 @@ class OzonParser(ItemParser, SeleniumParser):
         except TimeoutException:
             WebDriverWait(self._driver, 3).until(EC.element_to_be_clickable((By.XPATH, "(//span[text()='В корзину'])[2]"))).click()
 
-    def get_cart(self) -> list[Item]:
+    def get_first_cart_item(self) -> Item:
         logger.debug("Getting cart...")
 
         json_string = None
@@ -46,10 +46,12 @@ class OzonParser(ItemParser, SeleniumParser):
             self._driver.get(self._cart)
 
             page_source = self._driver.page_source
+            page_source = page_source.replace("&nbsp;", " ")
 
             logger.debug("Parsing page source...")
             try:
                 json_string = str(re.findall(r"'({.*?trackingPayloads.*?})'", page_source)[0])
+                green_price_parts = re.findall(r"badgeInfo.*?((\d+\s*)+).*?}", page_source)
             except IndexError:
                 sleep(5)
                 continue
@@ -61,7 +63,14 @@ class OzonParser(ItemParser, SeleniumParser):
         logger.debug("Parsing json...")
         data = json.loads(json_string, cls=QuotEncoder)
 
-        return list(self._parse_cart_json(data))
+        first_item = list(self._parse_cart_json(data))[0]
+
+        if green_price_parts:
+            green_price = int(green_price_parts[0][0].replace(" ", ""))
+            first_item.green_price = green_price
+
+        return first_item
+
 
     @staticmethod
     def _parse_cart_json(response_json) -> Iterable[Item]:
@@ -107,7 +116,7 @@ class OzonParser(ItemParser, SeleniumParser):
                             break
 
                         sleep(1)
-                        item = parser.get_cart()[0]
+                        item = parser.get_first_cart_item()
                         item.url = url
                         items.append(item)
 
@@ -124,7 +133,7 @@ def test_run():
     with OzonParser() as parser:
         parser.add_to_cart(input())
         sleep(1)
-        print(parser.get_cart())
+        print(parser.get_first_cart_item())
 
 
 if __name__ == "__main__":
