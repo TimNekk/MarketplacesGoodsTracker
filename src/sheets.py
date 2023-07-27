@@ -1,4 +1,5 @@
 from datetime import datetime
+from time import sleep
 from typing import List
 import re
 
@@ -90,16 +91,19 @@ class Sheets:
         self.sheet.format(f"{left}{top}:{left}{bottom}", {"borders": {"left": border}})
         self.sheet.format(f"{left}{bottom}:{right}{bottom}", {"borders": {"bottom": border}})
         self.sheet.format(f"{right}{top}:{right}{bottom}", {"borders": {"right": border}})
+        sleep(1)
 
         # Corners
         self.sheet.format(left + top, {"borders": {"left": border, "top": border}})
         self.sheet.format(right + top, {"borders": {"right": border, "top": border}})
         self.sheet.format(left + bottom, {"borders": {"left": border, "bottom": border}})
         self.sheet.format(right + bottom, {"borders": {"right": border, "bottom": border}})
+        sleep(1)
 
     def _format_number(self, cells_range: str) -> None:
         # Edges
         self.sheet.format(cells_range, {"numberFormat": {"type": "NUMBER", "pattern": "# ###"}})
+        sleep(1)
 
     @staticmethod
     def _number_literal_to_int(number_literal: str) -> int:
@@ -139,6 +143,7 @@ class Sheets:
                                               "bold": True
                                           },
                                   })
+                sleep(1)
 
     def _color_green_cells(self, cells_range: str, green_prices: list[bool]) -> None:
         first, second = cells_range.split(":")
@@ -157,6 +162,7 @@ class Sheets:
                                           "blue": 0.82
                                       }
                               })
+            sleep(1)
 
     def _remove_formatting(self, cells_range: str) -> None:
         self.sheet.format(cells_range,
@@ -172,6 +178,7 @@ class Sheets:
                                   "blue": 1
                               }
                           })
+        sleep(1)
 
     def replace_url(self, old_url: str, new_url: str):
         logger.info(f"Replacing {old_url} with {new_url}...")
