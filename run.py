@@ -24,7 +24,7 @@ def main() -> None:
     app = App(CREDENTIAL)
     logger.debug("App initialized")
 
-    schedule.every().day.at("07:00").do(app.update)
+    schedule.every().day.at("05:00").do(app.update)
 
     if args.update_after_launch:
         app.update()
