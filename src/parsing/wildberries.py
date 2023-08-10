@@ -9,6 +9,7 @@ from src.utils import logger
 
 class WildberriesParser(ItemParser):
     SALE_AMOUNT = 27
+    DESTINATION = -1257786
 
     @staticmethod
     def get_items(urls: list[str]) -> list[Item]:
@@ -23,28 +24,21 @@ class WildberriesParser(ItemParser):
                 card_url = "https://card.wb.ru/cards/detail"
                 params = {
                     "nm": code,
-                    "spp": WildberriesParser.SALE_AMOUNT
+                    "spp": WildberriesParser.SALE_AMOUNT,
+                    "dest": WildberriesParser.DESTINATION,
                 }
                 response = session.get(card_url, params=params)
-                response_json = response.json()
-                
-                if not response_json.get("data").get("products"):
-                    continue
+            response_json = response.json()
 
-                good = response_json.get("data").get("products")[0]
-                option_id = good.get("sizes")[0].get("optionId")
-                price = int(good.get("salePriceU") / 100)
+            if not response_json.get("data").get("products"):
+                continue
 
-                cart_url = "https://ru-basket-api.wildberries.ru/webapi/lk/basket/data"
-                data = {
-                    "basketItems[0][chrtId]": option_id,
-                    "basketItems[0][cod1S]": code,
-                }
-                response = session.post(cart_url, data=data)
+            good = response_json.get("data").get("products")[0]
+            price = int(good.get("salePriceU") / 100)
 
             status = Status.OUT_OF_STOCK
             quantity = 0
-            stocks = response.json().get("value").get("data").get("basket").get("basketItems")[0].get("stocks")
+            stocks = good.get("sizes")[0].get("stocks")
             if stocks:
                 quantity = sum([int(stock.get("qty")) for stock in stocks])
                 status = Status.OK
