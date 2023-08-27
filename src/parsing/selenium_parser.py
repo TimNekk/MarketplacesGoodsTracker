@@ -11,7 +11,7 @@ class SeleniumParser(ABC):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._driver.close()
+        self._driver.quit()
 
     @staticmethod
     def _get_driver() -> WebDriver:
