@@ -4,13 +4,16 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 from src.models import Item
 from src.utils import logger
-from src.parsing import ItemParser, OzonParser, WildberriesParser
+from src.parsing import SeleniumParser, ItemParser, OzonParser, WildberriesParser
 from src.sheets import Sheets
 
 
 class App:
-    def __init__(self, credentials: ServiceAccountCredentials):
+    def __init__(self, credentials: ServiceAccountCredentials, chrome_binary_location: str | None) -> None:
         self.sheets = Sheets(credentials)
+
+        if chrome_binary_location:
+            SeleniumParser.BINARY_LOCATION = chrome_binary_location
 
     def get_items(self) -> list[Item]:
         urls = self.sheets.get_urls() + [""]
