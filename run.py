@@ -45,7 +45,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        test_run()
-        # main()
+        # test_run()
+        main()
     except KeyboardInterrupt:
         logger.info("Stopped by KeyboardInterrupt")
