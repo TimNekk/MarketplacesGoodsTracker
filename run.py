@@ -3,16 +3,22 @@ from time import sleep
 
 import schedule
 
-from src.config import CREDENTIAL
-from src.parsing.ozon import test_run
-from src.utils import logger
 from src import App
+from src.config import CREDENTIAL
+from src.models import OZON, WILDBERRIES
+from src.utils import logger
 
 
 def parse_args() -> Namespace:
     parser = ArgumentParser()
 
-    parser.add_argument("-u", "--update-after-launch",
+    parser.add_argument("-oz", "--ozon",
+                        help="Parse Ozon",
+                        action="store_true")
+    parser.add_argument("-wb", "--wildberries",
+                        help="Parse Wildberries",
+                        action="store_true")
+    parser.add_argument("-u", "--update-immediately",
                         help="Updates immediately, ignoring schedule",
                         action="store_true")
     parser.add_argument("-b", "--binary",
@@ -30,12 +36,20 @@ def parse_args() -> Namespace:
 def main() -> None:
     args = parse_args()
 
-    app = App(CREDENTIAL, args.binary)
+    if args.ozon:
+        marketplace = OZON
+    elif args.wildberries:
+        marketplace = WILDBERRIES
+    else:
+        logger.warning("No marketplace specified. Use -h for help")
+        return
+
+    app = App(CREDENTIAL, marketplace, args.binary)
     logger.debug("App initialized")
 
     schedule.every().day.at(args.start_time).do(app.update)
 
-    if args.update_after_launch:
+    if args.update_immediately:
         app.update()
 
     while True:
@@ -45,7 +59,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        # test_run()
         main()
     except KeyboardInterrupt:
         logger.info("Stopped by KeyboardInterrupt")
