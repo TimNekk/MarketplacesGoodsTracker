@@ -93,21 +93,10 @@ class OzonSheets(Sheets):
                 fbs_green_prices.append(False)
                 fbo_green_prices.append(False)
 
-        print(fbs_quantities)
-        print(fbo_quantities)
-        print(fbs_prices)
-        print(fbo_prices)
-
         fbs_quantities = list(map(str, fbs_quantities))
         fbo_quantities = list(map(str, fbo_quantities))
         fbs_prices = list(map(str, fbs_prices))
         fbo_prices = list(map(str, fbo_prices))
-
-        print(fbs_quantities)
-        print(fbo_quantities)
-        print(fbs_prices)
-        print(fbo_prices)
-        print(self._top_offset)
 
         logger.debug("Removing previous colors...")
         self._remove_formatting(f"E3:H{len(urls) + self._top_offset + 1}")
