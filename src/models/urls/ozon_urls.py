@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from src.models.urls import Urls
+from src.models.urls.urls import Urls
 
 
 @dataclass
