@@ -2,7 +2,7 @@ import re
 
 from requests import Session
 
-from src.models import Item, Status
+from src.models import Status, WildberriesUrls, WildberriesItem
 from src.parsing import ItemParser
 from src.utils import logger
 
@@ -12,7 +12,7 @@ class WildberriesParser(ItemParser):
     DESTINATION = -1257786
 
     @staticmethod
-    def get_items(urls: list[str]) -> list[Item]:
+    def get_items(urls: WildberriesUrls) -> list[WildberriesItem]:
         items = []
 
         for url in urls:
@@ -43,7 +43,7 @@ class WildberriesParser(ItemParser):
                 quantity = sum([int(stock.get("qty")) for stock in stocks])
                 status = Status.OK
 
-            item = Item(
+            item = WildberriesItem(
                 url=url,
                 quantity=quantity,
                 price=price,

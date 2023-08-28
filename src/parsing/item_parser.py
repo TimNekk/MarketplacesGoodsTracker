@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 
-from src.models import Item
+from src.models import Item, Urls
 
 
 class ItemParser(ABC):
     @staticmethod
     @abstractmethod
-    def get_items(urls: list[str]) -> list[Item]:
+    def get_items(urls: Urls) -> list[Item]:
         pass
