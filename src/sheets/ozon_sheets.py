@@ -109,7 +109,7 @@ class OzonSheets(Sheets):
         self._add_border(f"E1:H{len(urls) + self._top_offset + 1}")
 
         logger.debug("Formatting numbers...")
-        self._format_number(f"E3:H{len(urls) + self._top_offset + 1}")
+        self._format_cells(f"E3:H{len(urls) + self._top_offset + 1}")
 
         logger.debug("Coloring red cells...")
         self._color_red_cells(f"G3:G{len(urls) + self._top_offset + 1}", restrictions_col=4, prices_col=7)

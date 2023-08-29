@@ -6,6 +6,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 from src.models import Item, Urls
+from src.sheets import CellFormat
 from src.utils import logger
 
 
@@ -53,9 +54,9 @@ class Sheets(ABC):
         self._sheet.format(right + bottom, {"borders": {"right": border, "bottom": border}})
         sleep(1)
 
-    def _format_number(self, cells_range: str) -> None:
+    def _format_cells(self, cells_range: str, cell_format: CellFormat = CellFormat.NUMBER_WITH_SPACE) -> None:
         # Edges
-        self._sheet.format(cells_range, {"numberFormat": {"type": "NUMBER", "pattern": "#,##0;#,##0;0"}})
+        self._sheet.format(cells_range, cell_format.value)
         sleep(1)
 
     @staticmethod
