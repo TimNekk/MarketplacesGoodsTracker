@@ -16,9 +16,11 @@ class WildberriesSheets(Sheets):
     def __init__(self, credentials: ServiceAccountCredentials):
         super().__init__(credentials, self.WORKBOOK_NAME, self.TOP_OFFSET_CELL_VALUE)
 
-    def get_urls(self) -> WildberriesUrls:
+    def get_urls(self, skip_empty: bool = True) -> WildberriesUrls:
         logger.info("Getting urls...")
-        urls = list(filter(lambda url: url != "", self._sheet.col_values(1)[(self._top_offset + 1):]))
+        urls = self._sheet.col_values(1)[(self._top_offset + 1):]
+        if skip_empty:
+            urls = list(filter(lambda url: url != "", urls))
         return WildberriesUrls(urls)
 
     def set_items(self, items: List[WildberriesItem]):
@@ -26,7 +28,7 @@ class WildberriesSheets(Sheets):
         prices = [""] * (self._top_offset + 1)
         sales = [""] * (self._top_offset + 1)
 
-        urls = self.get_urls()
+        urls = self.get_urls(skip_empty=False)
         for url in urls:
             added = False
 

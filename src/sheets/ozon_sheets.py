@@ -16,11 +16,16 @@ class OzonSheets(Sheets):
         super().__init__(credentials, self.WORKBOOK_NAME, self.TOP_OFFSET_CELL_VALUE)
         self._top_offset += 1
 
-    def get_urls(self) -> OzonUrls:
+    def get_urls(self, skip_empty: bool = True) -> OzonUrls:
         logger.info("Getting urls...")
+
         fbs_urls = self._sheet.col_values(1)[(self._top_offset + 1):]
         fbo_urls = self._sheet.col_values(2)[(self._top_offset + 1):]
-        urls = list(filter(lambda urls_tuple: urls_tuple[0] != "" and urls_tuple[1] != "", zip(fbs_urls, fbo_urls)))
+        urls = zip(fbs_urls, fbo_urls)
+
+        if skip_empty:
+            urls = list(filter(lambda urls_tuple: urls_tuple[0] != "" and urls_tuple[1] != "", urls))
+
         return OzonUrls(urls)
 
     def set_items(self, items: list[OzonItemPair]):
@@ -32,7 +37,7 @@ class OzonSheets(Sheets):
         fbs_green_prices = [False] * (self._top_offset + 1)
         fbo_green_prices = [False] * (self._top_offset + 1)
 
-        urls = self.get_urls()
+        urls = self.get_urls(skip_empty=False)
         for urls_tuple in urls:
             added = False
 
