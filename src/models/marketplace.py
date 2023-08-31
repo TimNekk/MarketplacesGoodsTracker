@@ -8,14 +8,17 @@ from src.sheets import Sheets, OzonSheets, WildberriesSheets
 class Marketplace:
     parser: type[ItemParser]
     sheets: type[Sheets]
+    name: str = None
 
 
 OZON = Marketplace(
     parser=OzonParser,
-    sheets=OzonSheets
+    sheets=OzonSheets,
+    name="Ozon"
 )
 
 WILDBERRIES = Marketplace(
     parser=WildberriesParser,
-    sheets=WildberriesSheets
+    sheets=WildberriesSheets,
+    name="Wildberries"
 )
