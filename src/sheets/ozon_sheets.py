@@ -21,10 +21,10 @@ class OzonSheets(Sheets):
 
         fbs_urls = self._sheet.col_values(1)[(self._top_offset + 1):]
         fbo_urls = self._sheet.col_values(2)[(self._top_offset + 1):]
-        urls = zip(fbs_urls, fbo_urls)
+        urls = list(zip(fbs_urls, fbo_urls))
 
         if skip_empty:
-            urls = list(filter(lambda urls_tuple: urls_tuple[0] != "" and urls_tuple[1] != "", urls))
+            urls = list(filter(lambda urls_tuple: urls_tuple[0] != "" or urls_tuple[1] != "", urls))
 
         return OzonUrls(urls)
 
@@ -43,10 +43,10 @@ class OzonSheets(Sheets):
 
             for item in items:
                 try:
-                    if item.fbs.url != urls_tuple[0] or item.fbo.url != urls_tuple[1]:
+                    if (item.fbs and item.fbs.url != urls_tuple[0]) or (item.fbo and item.fbo.url != urls_tuple[1]):
                         continue
 
-                    if item.fbs.status == Status.OUT_OF_STOCK and item.fbo.status == Status.OUT_OF_STOCK:
+                    if (item.fbs and item.fbs.status == Status.OUT_OF_STOCK) and (item.fbo and item.fbo.status == Status.OUT_OF_STOCK):
                         fbs_quantities.append(str(item.fbs.status.value))
                         fbo_quantities.append("")
                         fbs_prices.append("")
@@ -56,35 +56,39 @@ class OzonSheets(Sheets):
                         added = True
                         break
 
-                    if item.fbs.status in (Status.OK, Status.OUT_OF_STOCK):
-                        fbs_quantities.append(item.fbs.quantity)
-                        if item.fbs.green_price and item.fbs.status == Status.OK:
-                            fbs_prices.append(str(item.fbs.green_price))
-                            fbs_green_prices.append(True)
-                        elif item.fbs.status == Status.OK:
-                            fbs_prices.append(str(item.fbs.price))
-                            fbs_green_prices.append(False)
+                    if item.fbs:
+                        if item.fbs.status in (Status.OK, Status.OUT_OF_STOCK):
+                            fbs_quantities.append(item.fbs.quantity)
+                            if item.fbs.status == Status.OK:
+                                fbs_prices.append(str(item.fbs.green_price if item.fbs.green_price else item.fbs.price))
+                                fbs_green_prices.append(True if item.fbs.green_price else False)
+                            else:
+                                fbs_prices.append("")
+                                fbs_green_prices.append(False)
                         else:
+                            fbs_quantities.append(str(item.fbs.status.value))
                             fbs_prices.append("")
                             fbs_green_prices.append(False)
                     else:
-                        fbs_quantities.append(str(item.fbs.status.value))
+                        fbs_quantities.append("")
                         fbs_prices.append("")
                         fbs_green_prices.append(False)
 
-                    if item.fbo.status in (Status.OK, Status.OUT_OF_STOCK):
-                        fbo_quantities.append(item.fbo.quantity)
-                        if item.fbo.green_price and item.fbo.status == Status.OK:
-                            fbo_prices.append(str(item.fbo.green_price))
-                            fbo_green_prices.append(True)
-                        elif item.fbo.status == Status.OK:
-                            fbo_prices.append(str(item.fbo.price))
-                            fbo_green_prices.append(False)
+                    if item.fbo:
+                        if item.fbo.status in (Status.OK, Status.OUT_OF_STOCK):
+                            fbo_quantities.append(item.fbo.quantity)
+                            if item.fbo.status == Status.OK:
+                                fbo_prices.append(str(item.fbo.green_price if item.fbo.green_price else item.fbo.price))
+                                fbo_green_prices.append(True if item.fbo.green_price else False)
+                            else:
+                                fbo_prices.append("")
+                                fbo_green_prices.append(False)
                         else:
+                            fbo_quantities.append(str(item.fbo.status.value))
                             fbo_prices.append("")
                             fbo_green_prices.append(False)
                     else:
-                        fbo_quantities.append(str(item.fbo.status.value))
+                        fbo_quantities.append("")
                         fbo_prices.append("")
                         fbo_green_prices.append(False)
 

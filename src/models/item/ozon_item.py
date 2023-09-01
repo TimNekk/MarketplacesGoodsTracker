@@ -15,5 +15,5 @@ class OzonItem:
 
 @dataclass
 class OzonItemPair(Item):
-    fbs: OzonItem
-    fbo: OzonItem
+    fbs: OzonItem | None
+    fbo: OzonItem | None

@@ -97,14 +97,17 @@ class OzonParser(ItemParser, SeleniumParser):
     def get_items(urls: OzonUrls) -> list[OzonItemPair]:
         items = []
         for urls_tuple in urls:
-            fbs = OzonParser.get_item(urls_tuple[0])
-            fbo = OzonParser.get_item(urls_tuple[1])
+            fbs, fbo = None, None
+            if urls_tuple[0] != "":
+                fbs = OzonParser._get_item(urls_tuple[0])
+            if urls_tuple[1] != "":
+                fbo = OzonParser._get_item(urls_tuple[1])
             items.append(OzonItemPair(fbs=fbs, fbo=fbo))
 
         return items
 
     @staticmethod
-    def get_item(url: str) -> OzonItem:
+    def _get_item(url: str) -> OzonItem:
         logger.info(f"Getting item from: {url}...")
 
         attempts = 0
