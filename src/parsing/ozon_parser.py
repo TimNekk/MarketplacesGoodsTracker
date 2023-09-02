@@ -1,14 +1,14 @@
 import json
 import re
-from collections.abc import Iterable, Collection
+from collections.abc import Iterable
 from time import sleep
 
 from selenium.common.exceptions import InvalidArgumentException, TimeoutException
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
 
-from src.models import Item, Status
+from src.models import Status, OzonUrls, OzonItem, OzonItemPair
 from src.parsing.exceptions import WrongUrlException, OutOfStockException
 from src.parsing.item_parser import ItemParser
 from src.parsing.selenium_parser import SeleniumParser
@@ -38,7 +38,7 @@ class OzonParser(ItemParser, SeleniumParser):
         except TimeoutException:
             WebDriverWait(self._driver, 3).until(EC.element_to_be_clickable((By.XPATH, "(//span[text()='В корзину'])[2]"))).click()
 
-    def get_first_cart_item(self) -> Item:
+    def get_first_cart_item(self) -> OzonItem:
         logger.debug("Getting cart...")
 
         json_string = None
@@ -71,9 +71,8 @@ class OzonParser(ItemParser, SeleniumParser):
 
         return first_item
 
-
     @staticmethod
-    def _parse_cart_json(response_json) -> Iterable[Item]:
+    def _parse_cart_json(response_json) -> Iterable[OzonItem]:
         logger.debug("Parsing cart json...")
         tracking_payloads: dict[str, str] = response_json.get("trackingPayloads")
 
@@ -83,9 +82,9 @@ class OzonParser(ItemParser, SeleniumParser):
             if "products" in json_payload:
                 break
 
-        items: list[Item] = []
+        items: list[OzonItem] = []
         for item_json in json_payload.get("products"):
-            item = Item(
+            item = OzonItem(
                 quantity=item_json.get("availability"),
                 price=item_json.get("finalPrice"),
                 status=Status.OK
@@ -95,38 +94,44 @@ class OzonParser(ItemParser, SeleniumParser):
         return items
 
     @staticmethod
-    def get_items(urls: list[str]) -> list[Item]:
+    def get_items(urls: OzonUrls) -> list[OzonItemPair]:
         items = []
-        for url in urls:
-            logger.info(f"Getting item from: {url}...")
-
-            attempts = 0
-            max_attempts = 3
-            while attempts < max_attempts:
-                try:
-                    with OzonParser() as parser:
-                        try:
-                            parser.add_to_cart(url)
-                        except WrongUrlException as e:
-                            logger.debug(e)
-                            break
-                        except OutOfStockException as e:
-                            logger.info(e)
-                            items.append(Item(url=url, status=Status.OUT_OF_STOCK))
-                            break
-
-                        sleep(1)
-                        item = parser.get_first_cart_item()
-                        item.url = url
-                        items.append(item)
-
-                        logger.info(f"Got item: {item}")
-                        break
-                except Exception as e:
-                    logger.error(e)
-                    attempts += 1
+        for urls_tuple in urls:
+            fbs, fbo = None, None
+            if urls_tuple[0] != "":
+                fbs = OzonParser._get_item(urls_tuple[0])
+            if urls_tuple[1] != "":
+                fbo = OzonParser._get_item(urls_tuple[1])
+            items.append(OzonItemPair(fbs=fbs, fbo=fbo))
 
         return items
+
+    @staticmethod
+    def _get_item(url: str) -> OzonItem:
+        logger.info(f"Getting item from: {url}...")
+
+        attempts = 0
+        max_attempts = 3
+        while attempts < max_attempts:
+            try:
+                with OzonParser() as parser:
+                    try:
+                        parser.add_to_cart(url)
+                    except WrongUrlException as e:
+                        logger.debug(e)
+                        break
+                    except OutOfStockException as e:
+                        logger.info(e)
+                        return OzonItem(url=url, status=Status.OUT_OF_STOCK)
+
+                    sleep(1)
+                    item = parser.get_first_cart_item()
+                    item.url = url
+                    logger.info(f"Got item: {item}")
+                    return item
+            except Exception as e:
+                logger.error(e)
+                attempts += 1
 
 
 def test_run():
