@@ -108,14 +108,26 @@ class Sheets(ABC):
                 continue
 
             self._sheet.format(f"{left}{i + top}:{right}{i + top}",
+                               # {
+                               #     "backgroundColor":
+                               #         {
+                               #             "red": 0.85,
+                               #             "green": 0.91,
+                               #             "blue": 0.82
+                               #         }
+                               # },
                                {
-                                   "backgroundColor":
+                                   "textFormat":
                                        {
-                                           "red": 0.85,
-                                           "green": 0.91,
-                                           "blue": 0.82
-                                       }
-                               })
+                                           "foregroundColor":
+                                               {
+                                                   "red": 0.41,
+                                                   "green": 0.67,
+                                                   "blue": 0.31
+                                               },
+                                       },
+                               }
+                               )
             sleep(1)
 
     def _remove_formatting(self, cells_range: str) -> None:

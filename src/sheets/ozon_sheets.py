@@ -125,9 +125,9 @@ class OzonSheets(Sheets):
         logger.debug("Formatting numbers...")
         self._format_cells(f"E3:H{len(urls) + self._top_offset + 1}")
 
-        logger.debug("Coloring red cells...")
-        self._color_red_cells(f"G3:G{len(urls) + self._top_offset + 1}", restrictions_col=4, prices_col=7)
-        self._color_red_cells(f"H3:H{len(urls) + self._top_offset + 1}", restrictions_col=4, prices_col=8)
+        # logger.debug("Coloring red cells...")
+        # self._color_red_cells(f"G3:G{len(urls) + self._top_offset + 1}", restrictions_col=4, prices_col=7)
+        # self._color_red_cells(f"H3:H{len(urls) + self._top_offset + 1}", restrictions_col=4, prices_col=8)
 
         logger.debug("Coloring green cells...")
         self._color_green_cells(f"G3:G{len(urls) + 1}", fbs_green_prices)
