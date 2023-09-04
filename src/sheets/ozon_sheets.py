@@ -11,7 +11,7 @@ from src.utils import logger
 
 class OzonSheets(Sheets):
     WORKBOOK_NAME = "Трекер Ozon"
-    TOP_OFFSET_CELL_VALUE = "Ссылка FBS"
+    TOP_OFFSET_CELL_VALUE = "FBS"
 
     def __init__(self, credentials: ServiceAccountCredentials):
         super().__init__(credentials, self.WORKBOOK_NAME, self.TOP_OFFSET_CELL_VALUE)
@@ -31,8 +31,8 @@ class OzonSheets(Sheets):
 
     def set_items(self, items: list[OzonItemPair]):
         fbs_quantities: list[str | int] = ([""] * (self._top_offset - 1) +
-                                           [datetime.now().strftime("%d/%m - %H:%M"), "Количество FBS"])
-        fbo_quantities: list[str | int] = [""] * self._top_offset + ["Количество FBO"]
+                                           [datetime.now().strftime("%d/%m - %H:%M"), "FBS"])
+        fbo_quantities: list[str | int] = [""] * self._top_offset + ["FBO"]
         fbs_prices: list[str | int] = [""] * self._top_offset + ["Цена FBS"]
         fbo_prices: list[str | int] = [""] * self._top_offset + ["Цена FBO"]
         fbs_green_prices = [False] * (self._top_offset + 1)
