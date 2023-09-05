@@ -112,8 +112,8 @@ class OzonSheets(Sheets):
         fbs_prices = list(map(str, fbs_prices))
         fbo_prices = list(map(str, fbo_prices))
 
-        logger.debug("Removing previous colors...")
-        self._remove_formatting(f"E3:H{len(urls) + self._top_offset + 1}")
+        # logger.debug("Removing previous colors...")
+        # self._remove_formatting(f"E3:H{len(urls) + self._top_offset + 1}")
 
         logger.debug("Inserting data...")
         self._sheet.insert_cols([fbs_quantities, fbo_quantities, fbs_prices, fbo_prices],
