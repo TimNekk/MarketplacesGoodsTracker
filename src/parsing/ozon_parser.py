@@ -22,8 +22,10 @@ class OzonParser(ItemParser, SeleniumParser):
     def add_to_cart(self, url: str) -> None:
         logger.debug("Adding to cart...")
 
+        url = url.replace("oos_search=false", "")
+
+        logger.debug("Getting page source...")
         try:
-            logger.debug("Getting page source...")
             self._driver.get(url)
         except InvalidArgumentException:
             raise WrongUrlException(f"Wrong url passed ({url})")
@@ -102,7 +104,9 @@ class OzonParser(ItemParser, SeleniumParser):
                 fbs = OzonParser._get_item(urls_tuple[0])
             if urls_tuple[1] != "":
                 fbo = OzonParser._get_item(urls_tuple[1])
-            items.append(OzonItemPair(fbs=fbs, fbo=fbo))
+
+            if fbo or fbs:
+                items.append(OzonItemPair(fbs=fbs, fbo=fbo))
 
         return items
 
@@ -135,6 +139,7 @@ class OzonParser(ItemParser, SeleniumParser):
 
 
 def test_run():
+    SeleniumParser.BINARY_LOCATION = r"C:\Users\herew\Downloads\chrome\win64-114.0.5735.133\chrome-win64\chrome.exe"
     with OzonParser() as parser:
         parser.add_to_cart(input())
         sleep(1)
