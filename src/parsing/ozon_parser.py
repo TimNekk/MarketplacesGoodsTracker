@@ -49,11 +49,12 @@ class OzonParser(ItemParser, SeleniumParser):
 
             page_source = self._driver.page_source
             page_source = page_source.replace("&nbsp;", " ")
+            page_source = page_source.replace("&quot;", "\"")
 
             logger.debug("Parsing page source...")
             try:
                 json_string = str(re.findall(r"'({.*?trackingPayloads.*?})'", page_source)[0])
-                green_price_parts = re.findall(r"badgeInfo.*?((\d+\s*)+).*?}", page_source)
+                green_price_parts = re.findall(r"ozCtrlPositive.*?((\d+\s*)+).*?₽", page_source)
             except IndexError:
                 sleep(5)
                 continue
