@@ -36,9 +36,11 @@ class OzonParser(ItemParser, SeleniumParser):
 
         logger.debug("Clicking add to cart button...")
         try:
-            WebDriverWait(self._driver, 3).until(EC.element_to_be_clickable((By.XPATH, "//span[text()='Добавить в корзину']"))).click()
+            WebDriverWait(self._driver, 3).until(
+                EC.element_to_be_clickable((By.XPATH, "//span[text()='Добавить в корзину']"))).click()
         except TimeoutException:
-            WebDriverWait(self._driver, 3).until(EC.element_to_be_clickable((By.XPATH, "(//span[text()='В корзину'])[2]"))).click()
+            WebDriverWait(self._driver, 3).until(
+                EC.element_to_be_clickable((By.XPATH, "(//span[text()='В корзину'])[2]"))).click()
 
     def get_first_cart_item(self) -> OzonItem:
         logger.debug("Getting cart...")
@@ -53,8 +55,7 @@ class OzonParser(ItemParser, SeleniumParser):
 
             logger.debug("Parsing page source...")
             try:
-                json_string = str(re.findall(r"'({.*?trackingPayloads.*?})'", page_source)[0])
-                green_price_parts = re.findall(r"ozCtrlPositive.*?((\d+\s*)+).*?₽", page_source)
+                json_string = str(re.findall(r",\"items\":(\[.*])", page_source)[0])
             except IndexError:
                 sleep(5)
                 continue
@@ -63,35 +64,41 @@ class OzonParser(ItemParser, SeleniumParser):
         json_string = json_string.replace("\\\\", "\\")
         json_string = re.sub(r"\\n", "", json_string)
 
-        logger.debug("Parsing json...")
-        data = json.loads(json_string, cls=QuotEncoder)
+        logger.debug("Converting parsed string to items JSON...")
+        items = json.loads(json_string, cls=QuotEncoder)
 
-        first_item = list(self._parse_cart_json(data))[0]
-
-        if green_price_parts:
-            green_price = int(green_price_parts[0][0].replace(" ", ""))
-            first_item.green_price = green_price
-
+        first_item = list(self._parse_cart_json(items))[0]
         return first_item
 
     @staticmethod
-    def _parse_cart_json(response_json) -> Iterable[OzonItem]:
-        logger.debug("Parsing cart json...")
-        tracking_payloads: dict[str, str] = response_json.get("trackingPayloads")
-
-        json_payload = None
-        for payload in tracking_payloads.values():
-            json_payload = json.loads(payload)
-            if "products" in json_payload:
-                break
+    def _parse_cart_json(parsed_items) -> Iterable[OzonItem]:
+        logger.debug(" Parsing items JSON...")
 
         items: list[OzonItem] = []
-        for item_json in json_payload.get("products"):
+        for parsed_item in parsed_items:
+            quantity = parsed_item.get("quantity").get("maxQuantity")
+
+            price_column = parsed_item.get("products")[0].get("priceColumn")
+            price = int(''.join(filter(str.isdigit,
+                                       list(filter(lambda column_item: column_item.get("type") == "price",
+                                                   price_column))[0]
+                                       .get("price")
+                                       .get("price")
+                                       )))
+
             item = OzonItem(
-                quantity=item_json.get("availability"),
-                price=item_json.get("finalPrice"),
+                quantity=quantity,
+                price=price,
                 status=Status.OK
             )
+
+            green_price_column_items = list(
+                filter(lambda column_item: column_item.get("type") == "priceWithTitle", price_column))
+            if green_price_column_items:
+                green_price = int(
+                    ''.join(filter(str.isdigit, green_price_column_items[0].get("priceWithTitle").get("price"))))
+                item.green_price = green_price
+
             items.append(item)
 
         return items
