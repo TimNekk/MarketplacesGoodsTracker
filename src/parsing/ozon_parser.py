@@ -9,15 +9,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
 from src.models import Status, OzonUrls, OzonItem, OzonItemPair
-from src.parsing.exceptions import WrongUrlException, OutOfStockException
+from src.parsing.exceptions import WrongUrlException, OutOfStockException, ParsingException
 from src.parsing.item_parser import ItemParser
 from src.parsing.selenium_parser import SeleniumParser
 from src.utils import logger, QuotEncoder
 
 
 class OzonParser(ItemParser, SeleniumParser):
-    def __init__(self) -> None:
-        self._cart = "https://www.ozon.ru/cart"
+    _CART = "https://www.ozon.ru/cart"
 
     def add_to_cart(self, url: str) -> None:
         logger.debug("Adding to cart...")
@@ -46,8 +45,11 @@ class OzonParser(ItemParser, SeleniumParser):
         logger.debug("Getting cart...")
 
         json_string = None
-        while True:
-            self._driver.get(self._cart)
+        tries = 0
+        while tries < 2:
+            tries += 1
+
+            self._driver.get(OzonParser._CART)
 
             page_source = self._driver.page_source
             page_source = page_source.replace("&nbsp;", " ")
@@ -60,6 +62,9 @@ class OzonParser(ItemParser, SeleniumParser):
                 sleep(5)
                 continue
             break
+
+        if not json_string:
+            raise ParsingException("Couldn't parse cart")
 
         json_string = json_string.replace("\\\\", "\\")
         json_string = re.sub(r"\\n", "", json_string)
