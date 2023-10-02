@@ -1,6 +1,10 @@
-class OutOfStockException(Exception):
+class ParsingException(Exception):
     pass
 
 
-class WrongUrlException(Exception):
+class OutOfStockException(ParsingException):
+    pass
+
+
+class WrongUrlException(ParsingException):
     pass
