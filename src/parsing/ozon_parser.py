@@ -17,6 +17,7 @@ from src.utils import logger, QuotEncoder
 
 class OzonParser(ItemParser, SeleniumParser):
     _CART = "https://www.ozon.ru/cart"
+    _MAX_ITEM_PARSE_ATTEMPTS = 3
 
     def add_to_cart(self, url: str) -> None:
         logger.debug("Adding to cart...")
@@ -127,8 +128,7 @@ class OzonParser(ItemParser, SeleniumParser):
     def _get_item(url: str) -> OzonItem:
         logger.info(f"Getting item from: {url}...")
 
-        attempts = 0
-        max_attempts = 3
+        attempts, max_attempts = 0, OzonParser._MAX_ITEM_PARSE_ATTEMPTS
         while attempts < max_attempts:
             try:
                 with OzonParser() as parser:
@@ -147,7 +147,8 @@ class OzonParser(ItemParser, SeleniumParser):
                     logger.info(f"Got item: {item}")
                     return item
             except Exception as e:
-                logger.error(e)
+                logger.exception(e)
+                sleep(5)
                 attempts += 1
 
 
