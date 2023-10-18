@@ -58,7 +58,7 @@ class OzonParser(ItemParser, SeleniumParser):
 
             logger.debug("Parsing page source...")
             try:
-                json_string = str(re.findall(r",\"items\":(\[.*])", page_source)[0])
+                json_string = str(re.findall(r"split.*,\"items\":(\[.*])", page_source)[0])
             except IndexError:
                 sleep(5)
                 continue
@@ -78,7 +78,7 @@ class OzonParser(ItemParser, SeleniumParser):
 
     @staticmethod
     def _parse_cart_json(parsed_items) -> Iterable[OzonItem]:
-        logger.debug(" Parsing items JSON...")
+        logger.debug("Parsing items JSON...")
 
         items: list[OzonItem] = []
         for parsed_item in parsed_items:
