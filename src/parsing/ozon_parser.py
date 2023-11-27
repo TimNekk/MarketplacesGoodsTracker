@@ -1,6 +1,7 @@
 import json
 import re
 from collections.abc import Iterable
+from datetime import datetime
 from time import sleep
 
 from selenium.common.exceptions import InvalidArgumentException, TimeoutException
@@ -130,32 +131,32 @@ class OzonParser(ItemParser, SeleniumParser):
 
         attempts, max_attempts = 0, OzonParser._MAX_ITEM_PARSE_ATTEMPTS
         while attempts < max_attempts:
-            try:
-                with OzonParser() as parser:
-                    try:
-                        parser.add_to_cart(url)
-                    except WrongUrlException as e:
-                        logger.debug(e)
-                        break
-                    except OutOfStockException as e:
-                        logger.info(e)
-                        return OzonItem(url=url, status=Status.OUT_OF_STOCK)
-
+            with OzonParser() as parser:
+                try:
+                    parser.add_to_cart(url)
+                except WrongUrlException as e:
+                    logger.debug(e)
+                    break
+                except OutOfStockException as e:
+                    logger.info(e)
+                    return OzonItem(url=url, status=Status.OUT_OF_STOCK)
+                try:
                     sleep(1)
                     item = parser.get_first_cart_item()
                     item.url = url
                     logger.info(f"Got item: {item}")
                     return item
-            except Exception as e:
-                logger.exception(e)
-                sleep(5)
-                attempts += 1
+                except Exception as e:
+                    logger.exception(e)
+                    parser.screenshot(f"screenshots/error {datetime.now().strftime('%Y-%m-%d %H-%M-%S')}.png")
+                    sleep(5)
+                    attempts += 1
 
 
 def test_run():
     SeleniumParser.BINARY_LOCATION = r"C:\Users\herew\Downloads\chrome\win64-114.0.5735.133\chrome-win64\chrome.exe"
     with OzonParser() as parser:
-        parser.add_to_cart(input())
+        parser.add_to_cart(input("Ozon url: "))
         sleep(1)
         print(parser.get_first_cart_item())
 
