@@ -133,14 +133,15 @@ class OzonParser(ItemParser, SeleniumParser):
         while attempts < max_attempts:
             with OzonParser() as parser:
                 try:
-                    parser.add_to_cart(url)
-                except WrongUrlException as e:
-                    logger.debug(e)
-                    break
-                except OutOfStockException as e:
-                    logger.info(e)
-                    return OzonItem(url=url, status=Status.OUT_OF_STOCK)
-                try:
+                    try:
+                        parser.add_to_cart(url)
+                    except WrongUrlException as e:
+                        logger.debug(e)
+                        break
+                    except OutOfStockException as e:
+                        logger.info(e)
+                        return OzonItem(url=url, status=Status.OUT_OF_STOCK)
+
                     sleep(1)
                     item = parser.get_first_cart_item()
                     item.url = url
