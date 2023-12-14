@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import undetected_chromedriver
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.chromium.options import ChromiumOptions
@@ -31,3 +33,8 @@ class SeleniumParser(ABC):
         options.page_load_strategy = 'normal'
         options.binary_location = SeleniumParser.BINARY_LOCATION
         return undetected_chromedriver.Chrome(options=options, suppress_welcome=True)
+
+    def screenshot(self, file: str) -> None:
+        file_path = Path(file)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        self._driver.get_screenshot_as_file(file)
