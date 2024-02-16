@@ -61,7 +61,7 @@ just stop
 ```
 
 > [!TIP]
-> More command can be found in `justfile`
+> More commands can be found in [justfile](justfile)
 
 ### Using Pure Python
 
