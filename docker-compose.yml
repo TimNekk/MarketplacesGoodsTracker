@@ -12,8 +12,9 @@ services:
     env_file:
       - .env
     environment:
+      - TZ
       - START_TIME=${OZON_START_TIME}
-    command: python run.py -oz -u -t ${OZON_START_TIME}
+    command: python run.py -oz -u -t ${OZON_START_TIME} -tz ${TIMEZONE}
 
   wildberries:
     image: marketplaces-goods-tracker-image
@@ -26,5 +27,6 @@ services:
     env_file:
       - .env
     environment:
+      - TZ
       - START_TIME=${WILDBERRIES_START_TIME}
-    command: python run.py -wb -u -t ${WILDBERRIES_START_TIME}
+    command: python run.py -wb -u -t ${WILDBERRIES_START_TIME} -tz ${TIMEZONE}
