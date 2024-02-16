@@ -9,6 +9,8 @@ services:
     restart: unless-stopped
     volumes:
       - .:/usr/src/app
+    env_file:
+      - .env
     environment:
       - START_TIME=${OZON_START_TIME}
     command: python run.py -oz -u -t ${START_TIME}
@@ -21,6 +23,8 @@ services:
     restart: unless-stopped
     volumes:
       - .:/usr/src/app
+    env_file:
+      - .env
     environment:
       - START_TIME=${WILDBERRIES_START_TIME}
     command: python run.py -wb -u -t ${START_TIME}
