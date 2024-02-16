@@ -18,7 +18,7 @@
 1. Clone the repository
 
     ```shell
-    git clone
+    git clone https://github.com/TimNekk/MarketplacesGoodsTracker
     ```
 
 2. Rename `.env.dist' to `.env` and configure it
