@@ -21,7 +21,7 @@
     git clone https://github.com/TimNekk/MarketplacesGoodsTracker
     ```
 
-2. Rename `.env.dist' to `.env` and configure it
+2. Rename [.env.dist](.env.dist) to `.env` and configure it
 
     ```shell
     cd MarketplacesGoodsTracker
