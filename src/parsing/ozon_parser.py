@@ -117,7 +117,12 @@ class OzonParser(ItemParser):
         except OutOfStockException as e:
             logger.info(e)
             return OzonItem(url=url, status=Status.OUT_OF_STOCK)
-        quantity = OzonParser._get_quantity(response_quantity.json())
+
+        try:
+            quantity = OzonParser._get_quantity(response_quantity.json())
+        except IndexError:
+            logger.info("Url must be updated")
+            return OzonItem(url=url, status=Status.OUTDATED_URL)
 
         item = OzonItem(
             url=url,
