@@ -1,6 +1,12 @@
 start:
     docker compose up -d
 
+start-oz:
+    docker-compose up -d ozon
+
+start-wb:
+    docker-compose up -d wildberries
+
 stop:
     docker compose down
 
