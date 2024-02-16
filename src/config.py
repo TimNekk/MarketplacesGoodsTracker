@@ -1,8 +1,4 @@
-from environs import Env
 from oauth2client.service_account import ServiceAccountCredentials
-
-env = Env()
-env.read_env()
 
 SCOPE = (
     "https://spreadsheets.google.com/feeds",

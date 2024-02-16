@@ -1,3 +1,4 @@
+import os
 from argparse import ArgumentParser, Namespace
 from time import sleep
 
@@ -29,7 +30,7 @@ def parse_args() -> Namespace:
     parser.add_argument("-t", "--start-time",
                         help="Time to start updating",
                         type=str,
-                        default="05:00")
+                        default=os.getenv("START_TIME", "00:00"))
 
     return parser.parse_args()
 

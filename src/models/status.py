@@ -7,3 +7,4 @@ class Status(Enum):
     PARSING_ERROR = "Ошибка"
     OUT_OF_STOCK = "Нет в наличии"
     WRONG_URL = ""
+    OUTDATED_URL = "Обновите ссылку"
