@@ -24,6 +24,7 @@
 2. Rename `.env.dist' to `.env` and configure it
 
     ```shell
+    cd MarketplacesGoodsTracker
     cp .env.dist .env
     ```
    
@@ -31,7 +32,7 @@
 
     ```shell
     mv /path/to/creds.json .
-    ``
+    ```
 
 4.  Install the dependencies _(Optional, if not using Docker)_
 
