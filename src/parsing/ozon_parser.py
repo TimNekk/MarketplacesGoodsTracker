@@ -90,16 +90,17 @@ class OzonParser(ItemParser):
 
     @staticmethod
     def return_error_item_on_exception(func):
-        def wrapper(*arg, **kwargs):
+        def get_item(url: str):
             try:
-                func(*arg, **kwargs)
+                item = func(url)
             except Exception:
-                return OzonItem(
-                    url=arg[0],
+                item = OzonItem(
+                    url=url,
                     status=Status.PARSING_ERROR
                 )
+            return item
 
-        return wrapper
+        return get_item
 
     @staticmethod
     @return_error_item_on_exception
