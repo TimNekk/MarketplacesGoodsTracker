@@ -53,20 +53,20 @@ class WildberriesSheets(Sheets):
                 sales.append("")
 
         logger.debug("Removing previous colors...")
-        self._remove_formatting(f"G2:G{len(urls) + 1}")
+        self._remove_formatting(f"H2:H{len(urls) + 1}")
 
         logger.debug("Inserting data...")
-        self._sheet.insert_cols([quantities, prices, sales], col=6, value_input_option=ValueInputOption.user_entered)
+        self._sheet.insert_cols([quantities, prices, sales], col=7, value_input_option=ValueInputOption.user_entered)
 
         logger.debug("Adding borders...")
-        self._add_border(f"F1:H{len(urls) + 1}")
+        self._add_border(f"G1:I{len(urls) + 1}")
 
         logger.debug("Formatting numbers...")
-        self._format_cells(f"F2:G{len(urls) + 1}", CellFormat.NUMBER_WITH_SPACE)
-        self._format_cells(f"H2:H{len(urls) + 1}", CellFormat.NUMBER_PERCENT)
+        self._format_cells(f"G2:H{len(urls) + 1}", CellFormat.NUMBER_WITH_SPACE)
+        self._format_cells(f"I2:I{len(urls) + 1}", CellFormat.NUMBER_PERCENT)
 
         logger.debug("Coloring red cells...")
-        self._color_red_cells(f"G2:G{len(urls) + 1}", restrictions_col=3, prices_col=5)
+        self._color_red_cells(f"H2:H{len(urls) + 1}", restrictions_col=3, prices_col=8)
 
         logger.debug("Merging cells...")
-        self._sheet.merge_cells("F1:H1")
+        self._sheet.merge_cells("G1:I1")
