@@ -66,7 +66,7 @@ class WildberriesSheets(Sheets):
         self._format_cells(f"I2:I{len(urls) + 1}", CellFormat.NUMBER_PERCENT)
 
         logger.debug("Coloring red cells...")
-        self._color_red_cells(f"H2:H{len(urls) + 1}", restrictions_col=3, prices_col=5)
+        self._color_red_cells(f"H2:H{len(urls) + 1}", restrictions_col=3, prices_col=8)
 
         logger.debug("Merging cells...")
         self._sheet.merge_cells("G1:I1")
