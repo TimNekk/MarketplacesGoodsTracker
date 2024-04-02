@@ -2,6 +2,7 @@ import json
 import re
 
 from requests import Session
+from the_retry import retry
 
 from src.models import Status, OzonUrls, OzonItemPair, OzonItem
 from src.parsing import ItemParser
@@ -88,6 +89,21 @@ class OzonParser(ItemParser):
         return items
 
     @staticmethod
+    def return_error_item_on_exception(func):
+        def wrapper(*arg, **kwargs):
+            try:
+                func(*arg, **kwargs)
+            except Exception:
+                return OzonItem(
+                    url=arg[0],
+                    status=Status.PARSING_ERROR
+                )
+
+        return wrapper
+
+    @staticmethod
+    @return_error_item_on_exception
+    @retry(attempts=3, backoff=1, exponential_backoff=True)
     def _get_item(url: str) -> OzonItem | None:
         logger.info(f"Getting item from: {url}...")
 
