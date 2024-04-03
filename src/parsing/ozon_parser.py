@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import re
 
@@ -12,12 +14,7 @@ from src.utils import logger
 
 class OzonParser(ItemParser):
     _HEADERS = {
-        "accept": "*/*",
-        "user-agent": "ozonapp_android/16.23.1+2381",
-        "X-O3-App-Name": "ozonapp_android",
-        "X-O3-App-Version": "16.23.1(2381)",
-        "X-O3-Device-Type": "mobile",
-        "Mobile-Lat": "0"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 YaBrowser/24.1.0.0 Safari/537.36",
     }
     _BASE_URL = r"https://api.ozon.ru/composer-api.bx"
     _PRODUCT_URL = _BASE_URL + r"/page/json/v2?url=%2Fproduct%2F"
@@ -52,21 +49,18 @@ class OzonParser(ItemParser):
 
         price_json = None
         for key, value in widget_states.items():
-            if key.startswith("price-"):
+            if key.startswith("webPrice-"):
                 price_json = json.loads(value)
                 break
 
         if price_json is None:
             raise OutOfStockException("Item is out of stock")
 
-        if price_json.get("ordinaryPrice"):
-            price_str = price_json["ordinaryPrice"]["price"]["price"]["text"]
-            return OzonParser.price_to_number(price_str), None
+        price_str = price_json["price"]
+        green_price_str = price_json.get("cardPrice")
 
-        price_str = price_json["ozonCardPrice"]["price"]["price"]["price"]["text"]
-        green_price_str = price_json["ozonCardPrice"]["accentPrice"]["price"]["price"]["price"]["text"]
-
-        return OzonParser.price_to_number(price_str), OzonParser.price_to_number(green_price_str)
+        return (OzonParser.price_to_number(price_str),
+                OzonParser.price_to_number(green_price_str) if green_price_str else None)
 
     @staticmethod
     def _get_quantity(response: dict) -> int:
@@ -89,22 +83,28 @@ class OzonParser(ItemParser):
         return items
 
     @staticmethod
-    def return_error_item_on_exception(func):
-        def get_item(url: str):
-            try:
-                item = func(url)
-            except Exception:
-                item = OzonItem(
-                    url=url,
-                    status=Status.PARSING_ERROR
-                )
-            return item
+    def return_error_item_on_exception(raise_exception=False):
+        def decorator(func):
+            def get_item(url: str):
+                try:
+                    item = func(url)
+                except Exception as e:
+                    if raise_exception:
+                        raise e
 
-        return get_item
+                    item = OzonItem(
+                        url=url,
+                        status=Status.PARSING_ERROR
+                    )
+                return item
+
+            return get_item
+
+        return decorator
 
     @staticmethod
-    @return_error_item_on_exception
-    @retry(attempts=3, backoff=1, exponential_backoff=True)
+    @return_error_item_on_exception()
+    @retry(attempts=3, backoff=5, exponential_backoff=True)
     def _get_item(url: str) -> OzonItem | None:
         logger.info(f"Getting item from: {url}...")
 
