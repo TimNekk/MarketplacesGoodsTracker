@@ -16,9 +16,9 @@ class OzonParser(ItemParser):
     _HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 YaBrowser/24.1.0.0 Safari/537.36",
     }
-    _BASE_URL = r"https://api.ozon.ru/composer-api.bx"
-    _PRODUCT_URL = _BASE_URL + r"/page/json/v2?url=%2Fproduct%2F"
-    _ADD_TO_CART_URL = _BASE_URL + r"/_action/addToCart"
+    _BASE_URL = r"https://api.ozon.ru/"
+    _PRODUCT_URL = _BASE_URL + r"entrypoint-api.bx/page/json/v2?url=%2Fproduct%2F"
+    _ADD_TO_CART_URL = _BASE_URL + r"composer-api.bx/_action/addToCart"
 
     @staticmethod
     def price_to_number(price: str) -> int:
