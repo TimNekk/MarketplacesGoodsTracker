@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from pprint import pprint
 
 from requests import Session
 from the_retry import retry
@@ -26,7 +27,7 @@ class OzonParser(ItemParser):
 
     @staticmethod
     def extract_url_parts(url) -> tuple[str | None, int | None]:
-        updated_regex = r"/product/([^/]+)"
+        updated_regex = r"(?:\/product\/|%2Fproduct%2F)([\w-]+)"
         match = re.search(updated_regex, url)
 
         if not match:
@@ -120,9 +121,12 @@ class OzonParser(ItemParser):
             response_price = session.get(
                 url=OzonParser._PRODUCT_URL + url_part
             )
+
+            _, redirect_sku = OzonParser.extract_url_parts(response_price.url)
+
             response_quantity = session.post(
                 url=OzonParser._ADD_TO_CART_URL,
-                data=json.dumps([{"id": sku, "quantity": 2000}])
+                data=json.dumps([{"id": redirect_sku, "quantity": 2000}])
             )
 
         if response_price.status_code != 200:
@@ -135,11 +139,7 @@ class OzonParser(ItemParser):
             logger.info(e)
             return OzonItem(url=url, status=Status.OUT_OF_STOCK)
 
-        try:
-            quantity = OzonParser._get_quantity(response_quantity.json())
-        except IndexError:
-            logger.info("Url must be updated")
-            return OzonItem(url=url, status=Status.OUTDATED_URL)
+        quantity = OzonParser._get_quantity(response_quantity.json())
 
         item = OzonItem(
             url=url,
