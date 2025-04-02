@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import re
-from pprint import pprint
 
-from requests import Session
 from the_retry import retry
+from curl_cffi import requests
 
 from src.models import Status, OzonUrls, OzonItemPair, OzonItem
 from src.parsing import ItemParser
@@ -23,7 +23,7 @@ class OzonParser(ItemParser):
 
     @staticmethod
     def price_to_number(price: str) -> int:
-        return int(re.sub(r'\D', '', price))
+        return int(re.sub(r"\D", "", price))
 
     @staticmethod
     def extract_url_parts(url) -> tuple[str | None, int | None]:
@@ -60,8 +60,10 @@ class OzonParser(ItemParser):
         price_str = price_json["price"]
         green_price_str = price_json.get("cardPrice")
 
-        return (OzonParser.price_to_number(price_str),
-                OzonParser.price_to_number(green_price_str) if green_price_str else None)
+        return (
+            OzonParser.price_to_number(price_str),
+            OzonParser.price_to_number(green_price_str) if green_price_str else None,
+        )
 
     @staticmethod
     def _get_quantity(response: dict) -> int:
@@ -93,10 +95,7 @@ class OzonParser(ItemParser):
                     if raise_exception:
                         raise e
 
-                    item = OzonItem(
-                        url=url,
-                        status=Status.PARSING_ERROR
-                    )
+                    item = OzonItem(url=url, status=Status.PARSING_ERROR)
                 return item
 
             return get_item
@@ -115,22 +114,32 @@ class OzonParser(ItemParser):
             logger.debug(f"Wrong url passed ({url})")
             return None
 
-        with Session() as session:
-            session.headers.update(OzonParser._HEADERS)
+        proxy_url = os.environ.get("PROXY_URL")
 
-            response_price = session.get(
-                url=OzonParser._PRODUCT_URL + url_part
-            )
+        response_price = requests.get(
+            url=OzonParser._PRODUCT_URL + url_part,
+            headers=OzonParser._HEADERS,
+            impersonate="chrome116",
+            proxies={"https": proxy_url},
+        )
 
-            _, redirect_sku = OzonParser.extract_url_parts(response_price.url)
+        _, redirect_sku = OzonParser.extract_url_parts(response_price.url)
 
-            response_quantity = session.post(
-                url=OzonParser._ADD_TO_CART_URL,
-                data=json.dumps([{"id": redirect_sku, "quantity": 2000}])
-            )
+        response_quantity = requests.post(
+            url=OzonParser._ADD_TO_CART_URL,
+            data=json.dumps([{"id": redirect_sku, "quantity": 2000}]),
+            headers=OzonParser._HEADERS,
+            impersonate="chrome116",
+            cookies={
+                "__Secure-refresh-token": "7.0.SYkxK0SbQDmpHVoYJlekhQ.27.AerWva9-O_8-OHJlQRm3IhRExoT2P57SRnrAQ5OzeSN4JU7mVOlUx4eEnV50rLM_DA..20250402222635.j1sYDuPdWbOofvVcWx8P9mh8MwU4sfgSUy--fVLNszc.14bcdb1c048d6dded",
+                "abt_data": "7.mnQH91CIDBEENuO5RR0CsCgjWPdOFL0TYfxZCbi-nG-PvBc8Lcy7e7nkYO4CnQfrpjmPopyMaoe3jpFVDGjMXWeQLQ5SdULAQ774fJdLRMy92TeEjzgJNrNwy0I14ba5QvzflpQZaQROoO1Col2e5vDce_Ry_ZZPBvB8OpjE-pMZLGlDRt74QEuxFSXOscVUdj61tQmM4T27gyTKVJ5IgJFrKzHksBQTsNhgIeJtBWMcPkZt58hf2zCf4_wQfCDUn9GebtiLghqUkJfk4o-vDCN8OtBqqOlmcSlcQc7KYQyTnZn15m-A2XyZnICnbCycRif6HVrYmmzz5KQ1XN84mFiI187fSfFLoYmu43dxuaG2zZNu1LT-VUVwa49lIEU1JFh4DkVaU0suwboT3J4EZypUPM1fTQ4mwDlmD0QTXVHvYE0y4DEQdrPJYyfx1sMt4yWhFHQAtx91WYGAIT9qNl5BunWS_VmHphnVjvb60scqJEJKGAhQOPEFK4oK9G2CV36Unylj7431p5O3VTgB3VxMudX0Qx4x2RW5droIPD9fDC780k54fs6TSf69t1C7ab_PJELJ2NQDrNgrWd3P7f9Suh_K_H6P",
+            },
+        )
+
+        logger.debug(f"response_quantity.content: {response_quantity.content}")
 
         if response_price.status_code != 200:
-            logger.debug(f"Wrong url passed ({url})")
+            logger.debug(f"Got error response from Ozon: {response_price.status_code}")
             return None
 
         try:
@@ -146,7 +155,7 @@ class OzonParser(ItemParser):
             quantity=quantity,
             price=price,
             status=Status.OK,
-            green_price=green_price
+            green_price=green_price,
         )
 
         logger.info(f"Got item: {item}")
@@ -157,5 +166,5 @@ def test_run():
     print(OzonParser._get_item(input("Enter url: ")))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_run()

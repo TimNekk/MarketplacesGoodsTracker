@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   ozon:
-    image: marketplaces-goods-tracker-image
     container_name: marketplaces-goods-tracker-ozon
     build:
-        context: .
+      context: .
+    image: marketplaces-goods-tracker-image
     restart: unless-stopped
     volumes:
       - .:/usr/src/app
@@ -14,13 +12,14 @@ services:
     environment:
       - TZ
       - START_TIME=${OZON_START_TIME}
+      - PROXY_URL=${PROXY_URL}
     command: python run.py -oz -u -t ${OZON_START_TIME}
 
   wildberries:
-    image: marketplaces-goods-tracker-image
     container_name: marketplaces-goods-tracker-wildberries
     build:
-        context: .
+      context: .
+    image: marketplaces-goods-tracker-image
     restart: unless-stopped
     volumes:
       - .:/usr/src/app
