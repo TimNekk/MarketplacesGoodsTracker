@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 
 from the_retry import retry
@@ -113,10 +114,13 @@ class OzonParser(ItemParser):
             logger.debug(f"Wrong url passed ({url})")
             return None
 
+        proxy_url = os.environ.get("PROXY_URL")
+
         response_price = requests.get(
             url=OzonParser._PRODUCT_URL + url_part,
             headers=OzonParser._HEADERS,
             impersonate="chrome116",
+            proxies={"https": proxy_url},
         )
 
         _, redirect_sku = OzonParser.extract_url_parts(response_price.url)

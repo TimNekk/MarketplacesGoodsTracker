@@ -12,6 +12,7 @@ services:
     environment:
       - TZ
       - START_TIME=${OZON_START_TIME}
+      - PROXY_URL=${PROXY_URL}
     command: python run.py -oz -u -t ${OZON_START_TIME}
 
   wildberries:
