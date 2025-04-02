@@ -3,3 +3,4 @@ oauth2client==4.1.3
 schedule==1.1.0
 coloredlogs==15.0.1
 the-retry==0.1.1
+curl-cffi==0.10.0
