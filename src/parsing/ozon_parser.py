@@ -123,6 +123,12 @@ class OzonParser(ItemParser):
             proxies={"https": proxy_url},
         )
 
+        if response_price.status_code != 200:
+            logger.debug(
+                f"Got error response from Ozon prices: {response_price.status_code}"
+            )
+            return None
+
         _, redirect_sku = OzonParser.extract_url_parts(response_price.url)
 
         response_quantity = requests.post(
@@ -134,12 +140,13 @@ class OzonParser(ItemParser):
                 "__Secure-refresh-token": "7.0.SYkxK0SbQDmpHVoYJlekhQ.27.AerWva9-O_8-OHJlQRm3IhRExoT2P57SRnrAQ5OzeSN4JU7mVOlUx4eEnV50rLM_DA..20250402222635.j1sYDuPdWbOofvVcWx8P9mh8MwU4sfgSUy--fVLNszc.14bcdb1c048d6dded",
                 "abt_data": "7.mnQH91CIDBEENuO5RR0CsCgjWPdOFL0TYfxZCbi-nG-PvBc8Lcy7e7nkYO4CnQfrpjmPopyMaoe3jpFVDGjMXWeQLQ5SdULAQ774fJdLRMy92TeEjzgJNrNwy0I14ba5QvzflpQZaQROoO1Col2e5vDce_Ry_ZZPBvB8OpjE-pMZLGlDRt74QEuxFSXOscVUdj61tQmM4T27gyTKVJ5IgJFrKzHksBQTsNhgIeJtBWMcPkZt58hf2zCf4_wQfCDUn9GebtiLghqUkJfk4o-vDCN8OtBqqOlmcSlcQc7KYQyTnZn15m-A2XyZnICnbCycRif6HVrYmmzz5KQ1XN84mFiI187fSfFLoYmu43dxuaG2zZNu1LT-VUVwa49lIEU1JFh4DkVaU0suwboT3J4EZypUPM1fTQ4mwDlmD0QTXVHvYE0y4DEQdrPJYyfx1sMt4yWhFHQAtx91WYGAIT9qNl5BunWS_VmHphnVjvb60scqJEJKGAhQOPEFK4oK9G2CV36Unylj7431p5O3VTgB3VxMudX0Qx4x2RW5droIPD9fDC780k54fs6TSf69t1C7ab_PJELJ2NQDrNgrWd3P7f9Suh_K_H6P",
             },
+            proxies={"https": proxy_url},
         )
 
-        logger.debug(f"response_quantity.content: {response_quantity.content}")
-
-        if response_price.status_code != 200:
-            logger.debug(f"Got error response from Ozon: {response_price.status_code}")
+        if response_quantity.status_code != 200:
+            logger.debug(
+                f"Got error response from Ozon cart: {response_quantity.status_code}"
+            )
             return None
 
         try:
@@ -156,6 +163,18 @@ class OzonParser(ItemParser):
             price=price,
             status=Status.OK,
             green_price=green_price,
+        )
+
+        response_quantity = requests.post(
+            url=OzonParser._ADD_TO_CART_URL,
+            data=json.dumps([{"id": redirect_sku}]),
+            headers=OzonParser._HEADERS,
+            impersonate="chrome116",
+            cookies={
+                "__Secure-refresh-token": "7.0.SYkxK0SbQDmpHVoYJlekhQ.27.AerWva9-O_8-OHJlQRm3IhRExoT2P57SRnrAQ5OzeSN4JU7mVOlUx4eEnV50rLM_DA..20250402222635.j1sYDuPdWbOofvVcWx8P9mh8MwU4sfgSUy--fVLNszc.14bcdb1c048d6dded",
+                "abt_data": "7.mnQH91CIDBEENuO5RR0CsCgjWPdOFL0TYfxZCbi-nG-PvBc8Lcy7e7nkYO4CnQfrpjmPopyMaoe3jpFVDGjMXWeQLQ5SdULAQ774fJdLRMy92TeEjzgJNrNwy0I14ba5QvzflpQZaQROoO1Col2e5vDce_Ry_ZZPBvB8OpjE-pMZLGlDRt74QEuxFSXOscVUdj61tQmM4T27gyTKVJ5IgJFrKzHksBQTsNhgIeJtBWMcPkZt58hf2zCf4_wQfCDUn9GebtiLghqUkJfk4o-vDCN8OtBqqOlmcSlcQc7KYQyTnZn15m-A2XyZnICnbCycRif6HVrYmmzz5KQ1XN84mFiI187fSfFLoYmu43dxuaG2zZNu1LT-VUVwa49lIEU1JFh4DkVaU0suwboT3J4EZypUPM1fTQ4mwDlmD0QTXVHvYE0y4DEQdrPJYyfx1sMt4yWhFHQAtx91WYGAIT9qNl5BunWS_VmHphnVjvb60scqJEJKGAhQOPEFK4oK9G2CV36Unylj7431p5O3VTgB3VxMudX0Qx4x2RW5droIPD9fDC780k54fs6TSf69t1C7ab_PJELJ2NQDrNgrWd3P7f9Suh_K_H6P",
+            },
+            proxies={"https": proxy_url},
         )
 
         logger.info(f"Got item: {item}")
