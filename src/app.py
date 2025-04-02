@@ -3,20 +3,17 @@ from time import sleep
 from oauth2client.service_account import ServiceAccountCredentials
 
 from src.models import Item, Marketplace
-from src.parsing import SeleniumParser
 from src.utils import logger
 
 
 class App:
-    def __init__(self,
-                 credentials: ServiceAccountCredentials,
-                 marketplace: Marketplace,
-                 chrome_binary_location: str | None) -> None:
+    def __init__(
+        self,
+        credentials: ServiceAccountCredentials,
+        marketplace: Marketplace,
+    ) -> None:
         self.marketplace = marketplace
         self.sheets = self.marketplace.sheets(credentials)
-
-        if chrome_binary_location:
-            SeleniumParser.BINARY_LOCATION = chrome_binary_location
 
     def update(self):
         logger.info("Getting items...")
@@ -43,5 +40,5 @@ class App:
 
     def _get_items(self) -> list[Item]:
         urls = self.sheets.get_urls()
-        logger.debug(f'Got urls: {urls}')
+        logger.debug(f"Got urls: {urls}")
         return self.marketplace.parser.get_items(urls)
