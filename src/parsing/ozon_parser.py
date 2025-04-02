@@ -129,6 +129,12 @@ class OzonParser(ItemParser):
             )
             return None
 
+        try:
+            price, green_price = OzonParser._get_prices(response_price.json())
+        except OutOfStockException as e:
+            logger.info(e)
+            return OzonItem(url=url, status=Status.OUT_OF_STOCK)
+
         _, redirect_sku = OzonParser.extract_url_parts(response_price.url)
 
         response_quantity = requests.post(
@@ -148,12 +154,6 @@ class OzonParser(ItemParser):
                 f"Got error response from Ozon cart: {response_quantity.status_code}"
             )
             return None
-
-        try:
-            price, green_price = OzonParser._get_prices(response_price.json())
-        except OutOfStockException as e:
-            logger.info(e)
-            return OzonItem(url=url, status=Status.OUT_OF_STOCK)
 
         quantity = OzonParser._get_quantity(response_quantity.json())
 
