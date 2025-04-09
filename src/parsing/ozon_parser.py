@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import re
+import time
 
 from the_retry import retry
 from curl_cffi import requests
@@ -70,18 +72,18 @@ class OzonParser(ItemParser):
         return response["cart"]["cartItems"][0]["qty"]
 
     @staticmethod
-    def get_items(urls: OzonUrls) -> list[OzonItemPair]:
+    def get_items(urls: OzonUrls) -> list[OzonItem]:
         items = []
 
-        for urls_tuple in urls:
-            fbs, fbo = None, None
-            if urls_tuple[0] != "":
-                fbs = OzonParser._get_item(urls_tuple[0])
-            if urls_tuple[1] != "":
-                fbo = OzonParser._get_item(urls_tuple[1])
+        for url in urls:
+            item = None
+            if url != "":
+                item = OzonParser._get_item(url)
 
-            if fbo or fbs:
-                items.append(OzonItemPair(fbs=fbs, fbo=fbo))
+            if item:
+                items.append(item)
+
+            time.sleep(random.randint(4, 6) + random.random() * 2)
 
         return items
 
@@ -143,8 +145,8 @@ class OzonParser(ItemParser):
             headers=OzonParser._HEADERS,
             impersonate="chrome116",
             cookies={
-                "__Secure-refresh-token": "7.0.SYkxK0SbQDmpHVoYJlekhQ.27.AerWva9-O_8-OHJlQRm3IhRExoT2P57SRnrAQ5OzeSN4JU7mVOlUx4eEnV50rLM_DA..20250402222635.j1sYDuPdWbOofvVcWx8P9mh8MwU4sfgSUy--fVLNszc.14bcdb1c048d6dded",
-                "abt_data": "7.mnQH91CIDBEENuO5RR0CsCgjWPdOFL0TYfxZCbi-nG-PvBc8Lcy7e7nkYO4CnQfrpjmPopyMaoe3jpFVDGjMXWeQLQ5SdULAQ774fJdLRMy92TeEjzgJNrNwy0I14ba5QvzflpQZaQROoO1Col2e5vDce_Ry_ZZPBvB8OpjE-pMZLGlDRt74QEuxFSXOscVUdj61tQmM4T27gyTKVJ5IgJFrKzHksBQTsNhgIeJtBWMcPkZt58hf2zCf4_wQfCDUn9GebtiLghqUkJfk4o-vDCN8OtBqqOlmcSlcQc7KYQyTnZn15m-A2XyZnICnbCycRif6HVrYmmzz5KQ1XN84mFiI187fSfFLoYmu43dxuaG2zZNu1LT-VUVwa49lIEU1JFh4DkVaU0suwboT3J4EZypUPM1fTQ4mwDlmD0QTXVHvYE0y4DEQdrPJYyfx1sMt4yWhFHQAtx91WYGAIT9qNl5BunWS_VmHphnVjvb60scqJEJKGAhQOPEFK4oK9G2CV36Unylj7431p5O3VTgB3VxMudX0Qx4x2RW5droIPD9fDC780k54fs6TSf69t1C7ab_PJELJ2NQDrNgrWd3P7f9Suh_K_H6P",
+                "abt_data": "7.xvuoRpz3AF0qOZLW3RpN3FEgCP08Hp_XOZfonfd8ewg3gspc45RSo5Fw24IoC5SdIEKGh7LDwsjqIGn79QBU9GJaLkJJo1MMo7gSlQMGg2h3sLhC4Kwx4rkXEIeufGEcf4a40v5-wcegNqrF7U9Nj1jxGJd1GZpo1BZtnSSnRwUGxPpSLIA-xNeSoc8mCJxvbVNFtT2zqEOiZj9peNQHm_kEJxtJUvPuSpZ6-RiVzxzYQDW2duuTJknC5MwLxzRXrgGdZ2s55n4vhVj2n_U6sO_yrDaLc8G8d11NCCodx5HJYXA0eH9iAkPbC9lFQqdgaSI_k3DaMBlsbowyxguvJKNqTEmhUXmjd2xVGkaNxo9Qj5UFu2kUiVn5QcgSPJ2i15iMjZiiRNsVjs_MRQf6yoX7vnxMpbkfWmkxPpjAzvDa5NWPuoyQwoMn_8rRKgNYDwv2oep72clKuSY7Z6tRcoGAYu9-vG0lq9YpeXu13mY3YA9_ga2UgKC-5jpC3YoxOoC4RR8kdo9t6ZHT9ZhG21g",
+                "__Secure-refresh-token": "7.76618151.X93AXBEcS3G-_i_dwjpy0Q.22.AUNCdCn3Pp7xcLbbOUKM49HDlvbiHDPILWwV7lu3-6FE1emejS_nOFgVp3o3KhIozlqJQn3L_YAvzw78SAEySTU.20210922142247.20250409150825.nzLKfzDjAaYMXsNoloQXJjlq027_SB0vAVeHbG9xPJw.1b3b93e55e6ba8a9e",
             },
             proxies={"https": proxy_url},
         )
@@ -171,8 +173,8 @@ class OzonParser(ItemParser):
             headers=OzonParser._HEADERS,
             impersonate="chrome116",
             cookies={
-                "__Secure-refresh-token": "7.0.SYkxK0SbQDmpHVoYJlekhQ.27.AerWva9-O_8-OHJlQRm3IhRExoT2P57SRnrAQ5OzeSN4JU7mVOlUx4eEnV50rLM_DA..20250402222635.j1sYDuPdWbOofvVcWx8P9mh8MwU4sfgSUy--fVLNszc.14bcdb1c048d6dded",
-                "abt_data": "7.mnQH91CIDBEENuO5RR0CsCgjWPdOFL0TYfxZCbi-nG-PvBc8Lcy7e7nkYO4CnQfrpjmPopyMaoe3jpFVDGjMXWeQLQ5SdULAQ774fJdLRMy92TeEjzgJNrNwy0I14ba5QvzflpQZaQROoO1Col2e5vDce_Ry_ZZPBvB8OpjE-pMZLGlDRt74QEuxFSXOscVUdj61tQmM4T27gyTKVJ5IgJFrKzHksBQTsNhgIeJtBWMcPkZt58hf2zCf4_wQfCDUn9GebtiLghqUkJfk4o-vDCN8OtBqqOlmcSlcQc7KYQyTnZn15m-A2XyZnICnbCycRif6HVrYmmzz5KQ1XN84mFiI187fSfFLoYmu43dxuaG2zZNu1LT-VUVwa49lIEU1JFh4DkVaU0suwboT3J4EZypUPM1fTQ4mwDlmD0QTXVHvYE0y4DEQdrPJYyfx1sMt4yWhFHQAtx91WYGAIT9qNl5BunWS_VmHphnVjvb60scqJEJKGAhQOPEFK4oK9G2CV36Unylj7431p5O3VTgB3VxMudX0Qx4x2RW5droIPD9fDC780k54fs6TSf69t1C7ab_PJELJ2NQDrNgrWd3P7f9Suh_K_H6P",
+                "abt_data": "7.xvuoRpz3AF0qOZLW3RpN3FEgCP08Hp_XOZfonfd8ewg3gspc45RSo5Fw24IoC5SdIEKGh7LDwsjqIGn79QBU9GJaLkJJo1MMo7gSlQMGg2h3sLhC4Kwx4rkXEIeufGEcf4a40v5-wcegNqrF7U9Nj1jxGJd1GZpo1BZtnSSnRwUGxPpSLIA-xNeSoc8mCJxvbVNFtT2zqEOiZj9peNQHm_kEJxtJUvPuSpZ6-RiVzxzYQDW2duuTJknC5MwLxzRXrgGdZ2s55n4vhVj2n_U6sO_yrDaLc8G8d11NCCodx5HJYXA0eH9iAkPbC9lFQqdgaSI_k3DaMBlsbowyxguvJKNqTEmhUXmjd2xVGkaNxo9Qj5UFu2kUiVn5QcgSPJ2i15iMjZiiRNsVjs_MRQf6yoX7vnxMpbkfWmkxPpjAzvDa5NWPuoyQwoMn_8rRKgNYDwv2oep72clKuSY7Z6tRcoGAYu9-vG0lq9YpeXu13mY3YA9_ga2UgKC-5jpC3YoxOoC4RR8kdo9t6ZHT9ZhG21g",
+                "__Secure-refresh-token": "7.76618151.X93AXBEcS3G-_i_dwjpy0Q.22.AUNCdCn3Pp7xcLbbOUKM49HDlvbiHDPILWwV7lu3-6FE1emejS_nOFgVp3o3KhIozlqJQn3L_YAvzw78SAEySTU.20210922142247.20250409150825.nzLKfzDjAaYMXsNoloQXJjlq027_SB0vAVeHbG9xPJw.1b3b93e55e6ba8a9e",
             },
             proxies={"https": proxy_url},
         )

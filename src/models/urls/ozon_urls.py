@@ -5,7 +5,7 @@ from src.models.urls.urls import Urls
 
 @dataclass
 class OzonUrls(Urls):
-    urls: list[tuple[str, str]]
+    urls: list[str]
 
     def __iter__(self):
         return iter(self.urls)
