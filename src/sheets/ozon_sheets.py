@@ -37,6 +37,8 @@ class OzonSheets(Sheets):
         urls = self.get_urls(skip_empty=False)
 
         for url in urls:
+            added = False
+
             for item in items:
                 if item and item.url != url:
                     continue
@@ -47,12 +49,19 @@ class OzonSheets(Sheets):
                         str(item.green_price) if item.green_price else str(item.price)
                     )
                     green_prices.append(True if item.green_price else False)
+                    added = True
                 else:
                     quantities.append(str(item.status.value))
                     prices.append("")
                     green_prices.append(False)
+                    added = True
 
                 break
+
+            if not added:
+                quantities.append("")
+                prices.append("")
+                green_prices.append(False)
 
         quantities = list(map(str, quantities))
         prices = list(map(str, prices))
