@@ -125,11 +125,15 @@ class OzonParser(ItemParser):
             proxies={"https": proxy_url},
         )
 
+        if response_price.status_code >= 500:
+            logger.warning(f"Server error ({response_price.text}), retrying...")
+            raise Exception("Server error")
+
         if response_price.status_code != 200:
             logger.debug(
                 f"Got error response from Ozon prices: {response_price.status_code}"
             )
-            return None
+            return OzonItem(url=url, status=Status.PARSING_ERROR)
 
         try:
             price, green_price = OzonParser._get_prices(response_price.json())
@@ -151,11 +155,15 @@ class OzonParser(ItemParser):
             proxies={"https": proxy_url},
         )
 
+        if response_quantity.status_code >= 500:
+            logger.warning(f"Server error ({response_quantity.text}), retrying...")
+            raise Exception("Server error")
+
         if response_quantity.status_code != 200:
             logger.debug(
                 f"Got error response from Ozon cart: {response_quantity.status_code}"
             )
-            return None
+            return OzonItem(url=url, status=Status.PARSING_ERROR)
 
         quantity = OzonParser._get_quantity(response_quantity.json())
 
