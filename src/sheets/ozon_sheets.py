@@ -60,18 +60,18 @@ class OzonSheets(Sheets):
         logger.debug("Inserting data...")
         self._sheet.insert_cols(
             [quantities, prices],
-            col=7,
+            col=8,
             value_input_option=ValueInputOption.user_entered,
         )
 
         logger.debug("Adding borders...")
-        self._add_border(f"G1:H{len(urls) + self._top_offset + 1}")
+        self._add_border(f"H1:I{len(urls) + self._top_offset + 1}")
 
         logger.debug("Formatting numbers...")
-        self._format_cells(f"G3:H{len(urls) + self._top_offset + 1}")
+        self._format_cells(f"H3:I{len(urls) + self._top_offset + 1}")
 
         logger.debug("Coloring green cells...")
-        self._color_green_cells(f"H3:H{len(urls) + 1}", green_prices)
+        self._color_green_cells(f"I3:I{len(urls) + 1}", green_prices)
 
         logger.debug("Merging cells...")
-        self._sheet.merge_cells("G1:H1")
+        self._sheet.merge_cells("H1:I1")
