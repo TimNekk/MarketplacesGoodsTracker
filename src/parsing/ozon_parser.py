@@ -68,8 +68,11 @@ class OzonParser(ItemParser):
         )
 
     @staticmethod
-    def _get_quantity(response: dict) -> int:
-        return response["cart"]["cartItems"][0]["qty"]
+    def _get_quantity(response: dict, sku: int) -> int:
+        for cart_item in response["cart"]["cartItems"]:
+            if cart_item["id"] == sku:
+                return cart_item["qty"]
+        raise Exception("Product not found in cart")
 
     @staticmethod
     def get_items(urls: OzonUrls) -> list[OzonItem]:
@@ -165,7 +168,7 @@ class OzonParser(ItemParser):
             )
             return OzonItem(url=url, status=Status.PARSING_ERROR)
 
-        quantity = OzonParser._get_quantity(response_quantity.json())
+        quantity = OzonParser._get_quantity(response_quantity.json(), redirect_sku)
 
         item = OzonItem(
             url=url,
@@ -175,17 +178,19 @@ class OzonParser(ItemParser):
             green_price=green_price,
         )
 
-        response_quantity = requests.post(
-            url=OzonParser._ADD_TO_CART_URL,
-            data=json.dumps([{"id": redirect_sku}]),
-            headers=OzonParser._HEADERS,
-            impersonate="chrome116",
-            cookies={
-                "abt_data": "7.xvuoRpz3AF0qOZLW3RpN3FEgCP08Hp_XOZfonfd8ewg3gspc45RSo5Fw24IoC5SdIEKGh7LDwsjqIGn79QBU9GJaLkJJo1MMo7gSlQMGg2h3sLhC4Kwx4rkXEIeufGEcf4a40v5-wcegNqrF7U9Nj1jxGJd1GZpo1BZtnSSnRwUGxPpSLIA-xNeSoc8mCJxvbVNFtT2zqEOiZj9peNQHm_kEJxtJUvPuSpZ6-RiVzxzYQDW2duuTJknC5MwLxzRXrgGdZ2s55n4vhVj2n_U6sO_yrDaLc8G8d11NCCodx5HJYXA0eH9iAkPbC9lFQqdgaSI_k3DaMBlsbowyxguvJKNqTEmhUXmjd2xVGkaNxo9Qj5UFu2kUiVn5QcgSPJ2i15iMjZiiRNsVjs_MRQf6yoX7vnxMpbkfWmkxPpjAzvDa5NWPuoyQwoMn_8rRKgNYDwv2oep72clKuSY7Z6tRcoGAYu9-vG0lq9YpeXu13mY3YA9_ga2UgKC-5jpC3YoxOoC4RR8kdo9t6ZHT9ZhG21g",
-                "__Secure-refresh-token": "7.76618151.X93AXBEcS3G-_i_dwjpy0Q.22.AUNCdCn3Pp7xcLbbOUKM49HDlvbiHDPILWwV7lu3-6FE1emejS_nOFgVp3o3KhIozlqJQn3L_YAvzw78SAEySTU.20210922142247.20250409150825.nzLKfzDjAaYMXsNoloQXJjlq027_SB0vAVeHbG9xPJw.1b3b93e55e6ba8a9e",
-            },
-            proxies={"https": proxy_url},
-        )
+        for cart_item in response_quantity.json()["cart"]["cartItems"]:
+            logger.debug(f"Remove item from cart: {cart_item}")
+            response_quantity = requests.post(
+                url=OzonParser._ADD_TO_CART_URL,
+                data=json.dumps([{"id": cart_item["id"]}]),
+                headers=OzonParser._HEADERS,
+                impersonate="chrome116",
+                cookies={
+                    "abt_data": "7.xvuoRpz3AF0qOZLW3RpN3FEgCP08Hp_XOZfonfd8ewg3gspc45RSo5Fw24IoC5SdIEKGh7LDwsjqIGn79QBU9GJaLkJJo1MMo7gSlQMGg2h3sLhC4Kwx4rkXEIeufGEcf4a40v5-wcegNqrF7U9Nj1jxGJd1GZpo1BZtnSSnRwUGxPpSLIA-xNeSoc8mCJxvbVNFtT2zqEOiZj9peNQHm_kEJxtJUvPuSpZ6-RiVzxzYQDW2duuTJknC5MwLxzRXrgGdZ2s55n4vhVj2n_U6sO_yrDaLc8G8d11NCCodx5HJYXA0eH9iAkPbC9lFQqdgaSI_k3DaMBlsbowyxguvJKNqTEmhUXmjd2xVGkaNxo9Qj5UFu2kUiVn5QcgSPJ2i15iMjZiiRNsVjs_MRQf6yoX7vnxMpbkfWmkxPpjAzvDa5NWPuoyQwoMn_8rRKgNYDwv2oep72clKuSY7Z6tRcoGAYu9-vG0lq9YpeXu13mY3YA9_ga2UgKC-5jpC3YoxOoC4RR8kdo9t6ZHT9ZhG21g",
+                    "__Secure-refresh-token": "7.76618151.X93AXBEcS3G-_i_dwjpy0Q.22.AUNCdCn3Pp7xcLbbOUKM49HDlvbiHDPILWwV7lu3-6FE1emejS_nOFgVp3o3KhIozlqJQn3L_YAvzw78SAEySTU.20210922142247.20250409150825.nzLKfzDjAaYMXsNoloQXJjlq027_SB0vAVeHbG9xPJw.1b3b93e55e6ba8a9e",
+                },
+                proxies={"https": proxy_url},
+            )
 
         logger.info(f"Got item: {item}")
         return item
