@@ -103,31 +103,34 @@ class Sheets(ABC):
         first, second = cells_range.split(":")
         left, top, right, _ = first[0], int(first[1:]) - self._top_offset - 1, second[0], second[1:]
 
+        # First, color the entire range green
+        self._sheet.format(
+            cells_range,
+            {
+                "textFormat": {
+                    "foregroundColor": {
+                        "red": 0.41,
+                        "green": 0.67,
+                        "blue": 0.31
+                    },
+                },
+            }
+        )
+        sleep(1)
+
+        # Then revert cells without green price to black
         for i, green_price in enumerate(green_prices):
-            if not green_price:
+            if green_price:
                 continue
 
-            self._sheet.format(f"{left}{i + top}:{right}{i + top}",
-                               # {
-                               #     "backgroundColor":
-                               #         {
-                               #             "red": 0.85,
-                               #             "green": 0.91,
-                               #             "blue": 0.82
-                               #         }
-                               # },
-                               {
-                                   "textFormat":
-                                       {
-                                           "foregroundColor":
-                                               {
-                                                   "red": 0.41,
-                                                   "green": 0.67,
-                                                   "blue": 0.31
-                                               },
-                                       },
-                               }
-                               )
+            self._sheet.format(
+                f"{left}{i + top}:{right}{i + top}",
+                {
+                    "textFormat": {
+                        "foregroundColor": {},
+                    },
+                }
+            )
             sleep(1)
 
     def _remove_formatting(self, cells_range: str) -> None:
