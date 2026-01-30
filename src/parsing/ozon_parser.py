@@ -8,7 +8,6 @@ import time
 
 from the_retry import retry
 from tls_client import Session
-from tls_client.exceptions import TLSClientExeption
 
 from src.models import Status, OzonUrls, OzonItem
 from src.parsing import ItemParser
@@ -194,6 +193,10 @@ class OzonParser(ItemParser):
         if response_price.status_code >= 500:
             logger.warning(f"Server error ({response_price.text}), retrying...")
             raise Exception("Server error")
+
+        if response_price.status_code == 302:
+            logger.info("Item out of stock")
+            return OzonItem(url=url, status=Status.OUT_OF_STOCK)
 
         if response_price.status_code != 200:
             logger.warning(
