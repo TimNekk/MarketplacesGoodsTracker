@@ -5,6 +5,7 @@ import random
 import re
 import threading
 import time
+from typing import Any
 
 from the_retry import retry
 from tls_client import Session
@@ -18,22 +19,48 @@ from src.utils import logger
 # If the new session still returns 403, wait this long before fetching another session.
 DELAY_AFTER_FAILED_SESSION_SEC = 60 * 60  # 60 minutes
 
+# List of TLS client identifiers to rotate through for fingerprint diversity
+# Type ignored because tls_client type stubs don't include newer Chrome versions
+TLS_CLIENT_IDENTIFIERS: list[Any] = [
+    "chrome_120",
+    "chrome_119",
+    "chrome_118",
+    "chrome_117",
+    "chrome_116",
+]
+
 
 class OzonParser(ItemParser):
     _BASE_URL = r"https://www.ozon.ru/api/composer-api.bx/"
     _PRODUCT_URL = _BASE_URL + r"page/json/v2?url=%2Fproduct%2F"
     _ADD_TO_CART_URL = _BASE_URL + r"_action/addToCart"
 
-    # TLS client session for requests
-    _tls_session = Session(
-        client_identifier="chrome_120",
-        random_tls_extension_order=True,
-    )
+    # TLS client session for requests - now managed dynamically
+    _tls_session: Session | None = None
+    _tls_client_index = 0
 
     # Class-level session management (cookies/headers from Selenium)
     _session: SessionData | None = None
     _session_lock = threading.Lock()
     _success_since_refresh = True
+
+    @classmethod
+    def _create_tls_session(cls) -> Session:
+        """Create a fresh TLS session with rotating client identifier."""
+        client_id = TLS_CLIENT_IDENTIFIERS[cls._tls_client_index % len(TLS_CLIENT_IDENTIFIERS)]
+        cls._tls_client_index += 1
+        logger.debug(f"Creating new TLS session with client identifier: {client_id}")
+        return Session(
+            client_identifier=client_id,
+            random_tls_extension_order=True,
+        )
+
+    @classmethod
+    def _get_tls_session(cls) -> Session:
+        """Get or create TLS session."""
+        if cls._tls_session is None:
+            cls._tls_session = cls._create_tls_session()
+        return cls._tls_session
 
     @classmethod
     def _get_session(cls) -> SessionData:
@@ -56,6 +83,11 @@ class OzonParser(ItemParser):
             time.sleep(DELAY_AFTER_FAILED_SESSION_SEC)
 
         logger.warning("Refreshing Ozon session due to 403 error")
+        
+        # Recreate TLS session to clear stale connection state
+        logger.info("Recreating TLS client session...")
+        cls._tls_session = cls._create_tls_session()
+        
         new_session = get_session()
 
         with cls._session_lock:
@@ -177,8 +209,9 @@ class OzonParser(ItemParser):
         proxy_url = None
         # proxy_url = os.environ.get("PROXY_URL")
         session = cls._get_session()
+        tls_session = cls._get_tls_session()
 
-        response_price = cls._tls_session.get(
+        response_price = tls_session.get(
             url=cls._PRODUCT_URL + url_part,
             headers=session.headers,
             cookies=session.cookies,
@@ -214,7 +247,7 @@ class OzonParser(ItemParser):
 
         _, redirect_sku = cls.extract_url_parts(response_price.url)
 
-        response_quantity = cls._tls_session.post(
+        response_quantity = tls_session.post(
             url=cls._ADD_TO_CART_URL,
             data=json.dumps([{"id": redirect_sku, "quantity": 2000}]),
             headers=session.headers,
@@ -249,7 +282,7 @@ class OzonParser(ItemParser):
 
         for cart_item in response_quantity.json()["cart"]["cartItems"]:
             logger.debug(f"Remove item from cart: {cart_item}")
-            cls._tls_session.post(
+            tls_session.post(
                 url=cls._ADD_TO_CART_URL,
                 data=json.dumps([{"id": cart_item["id"]}]),
                 headers=session.headers,

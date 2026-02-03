@@ -1,4 +1,7 @@
+import os
+import shutil
 import time
+import uuid
 from dataclasses import dataclass
 
 from seleniumwire import webdriver
@@ -12,6 +15,16 @@ from src.utils import logger
 class SessionData:
     cookies: dict[str, str]
     headers: dict[str, str]
+
+
+def _cleanup_seleniumwire_storage(storage_path: str) -> None:
+    """Clean up seleniumwire temporary storage."""
+    try:
+        if os.path.exists(storage_path):
+            shutil.rmtree(storage_path)
+            logger.debug(f"Cleaned up seleniumwire storage: {storage_path}")
+    except Exception as e:
+        logger.warning(f"Failed to clean up seleniumwire storage: {e}")
 
 
 def get_session(headless: bool = True) -> SessionData:
@@ -31,7 +44,14 @@ def get_session(headless: bool = True) -> SessionData:
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     )
 
-    driver = webdriver.Chrome(options=options)
+    # Use unique storage path for seleniumwire to avoid conflicts/corruption
+    storage_path = f"/tmp/.seleniumwire-{uuid.uuid4().hex[:8]}"
+    seleniumwire_options = {
+        "request_storage_base_dir": storage_path,
+        "exclude_hosts": [],  # Don't exclude any hosts
+    }
+
+    driver = webdriver.Chrome(options=options, seleniumwire_options=seleniumwire_options)
 
     stealth(
         driver,
@@ -90,3 +110,5 @@ def get_session(headless: bool = True) -> SessionData:
             driver.quit()
         except Exception:
             pass
+        # Clean up seleniumwire storage to prevent accumulation
+        _cleanup_seleniumwire_storage(storage_path)
