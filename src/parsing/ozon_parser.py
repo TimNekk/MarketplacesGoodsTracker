@@ -47,7 +47,9 @@ class OzonParser(ItemParser):
     @classmethod
     def _create_tls_session(cls) -> Session:
         """Create a fresh TLS session with rotating client identifier."""
-        client_id = TLS_CLIENT_IDENTIFIERS[cls._tls_client_index % len(TLS_CLIENT_IDENTIFIERS)]
+        client_id = TLS_CLIENT_IDENTIFIERS[
+            cls._tls_client_index % len(TLS_CLIENT_IDENTIFIERS)
+        ]
         cls._tls_client_index += 1
         logger.debug(f"Creating new TLS session with client identifier: {client_id}")
         return Session(
@@ -83,11 +85,11 @@ class OzonParser(ItemParser):
             time.sleep(DELAY_AFTER_FAILED_SESSION_SEC)
 
         logger.warning("Refreshing Ozon session due to 403 error")
-        
+
         # Recreate TLS session to clear stale connection state
         logger.info("Recreating TLS client session...")
         cls._tls_session = cls._create_tls_session()
-        
+
         new_session = get_session()
 
         with cls._session_lock:
@@ -216,6 +218,7 @@ class OzonParser(ItemParser):
             headers=session.headers,
             cookies=session.cookies,
             proxy=proxy_url,
+            allow_redirects=True,
         )
 
         if response_price.status_code == 403:
@@ -253,6 +256,7 @@ class OzonParser(ItemParser):
             headers=session.headers,
             cookies=session.cookies,
             proxy=proxy_url,
+            allow_redirects=True,
         )
 
         if response_quantity.status_code == 403:
@@ -288,6 +292,7 @@ class OzonParser(ItemParser):
                 headers=session.headers,
                 cookies=session.cookies,
                 proxy=proxy_url,
+                allow_redirects=True,
             )
 
         logger.info(f"Got item: {item}")

@@ -51,7 +51,9 @@ def get_session(headless: bool = True) -> SessionData:
         "exclude_hosts": [],  # Don't exclude any hosts
     }
 
-    driver = webdriver.Chrome(options=options, seleniumwire_options=seleniumwire_options)
+    driver = webdriver.Chrome(
+        options=options, seleniumwire_options=seleniumwire_options
+    )
 
     stealth(
         driver,
@@ -103,7 +105,8 @@ def get_session(headless: bool = True) -> SessionData:
             )
 
         logger.info("Session fetched successfully")
-        return SessionData(cookies=cookies, headers=headers)
+        return SessionData(cookies=cookies, headers={})
+        # return SessionData(cookies=cookies, headers=headers)
 
     finally:
         try:
