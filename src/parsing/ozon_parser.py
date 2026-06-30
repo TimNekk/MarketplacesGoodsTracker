@@ -42,6 +42,7 @@ class OzonParser(ItemParser):
     # Class-level session management (cookies/headers from Selenium)
     _session: SessionData | None = None
     _session_lock = threading.Lock()
+    _refresh_lock = threading.Lock()
     _success_since_refresh = True
 
     @classmethod
@@ -77,6 +78,7 @@ class OzonParser(ItemParser):
         """Refresh session when 403 is encountered. Thread-safe with delay if no success."""
         with cls._session_lock:
             need_delay = not cls._success_since_refresh
+            old_session = cls._session
 
         if need_delay:
             logger.warning(
@@ -84,19 +86,26 @@ class OzonParser(ItemParser):
             )
             time.sleep(DELAY_AFTER_FAILED_SESSION_SEC)
 
-        logger.warning("Refreshing Ozon session due to 403 error")
+        with cls._refresh_lock:
+            # Another thread may have already refreshed while we waited
+            with cls._session_lock:
+                if cls._session is not old_session:
+                    logger.info("Session already refreshed by another thread, skipping")
+                    return
 
-        # Recreate TLS session to clear stale connection state
-        logger.info("Recreating TLS client session...")
-        cls._tls_session = cls._create_tls_session()
+            logger.warning("Refreshing Ozon session due to 403 error")
 
-        new_session = get_session()
+            # Recreate TLS session to clear stale connection state
+            logger.info("Recreating TLS client session...")
+            cls._tls_session = cls._create_tls_session()
 
-        with cls._session_lock:
-            cls._session = new_session
-            cls._success_since_refresh = False
+            new_session = get_session()
 
-        logger.info("Session refreshed successfully")
+            with cls._session_lock:
+                cls._session = new_session
+                cls._success_since_refresh = False
+
+            logger.info("Session refreshed successfully")
 
     @classmethod
     def _mark_success(cls) -> None:
