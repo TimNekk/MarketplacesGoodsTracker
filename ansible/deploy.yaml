@@ -1,0 +1,25 @@
+---
+- name: Deploy
+  hosts: server
+  become: true
+  gather_facts: false
+  vars:
+    project_path: "/root/MarketplacesGoodsTracker"
+  tasks:
+    - name: Ensure git is installed
+      package:
+        name: git
+        state: present
+
+    - name: Pull latest code
+      git:
+        repo: "https://github.com/TimNekk/MarketplacesGoodsTracker"
+        dest: "{{ project_path }}"
+        version: main
+    
+    - name: Build and restart compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_path }}"
+        state: present
+        build: always
+        remove_orphans: true
