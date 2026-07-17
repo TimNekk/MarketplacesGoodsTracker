@@ -1,22 +1,46 @@
 ---
-- name: Deploy
+- name: Deploy MarketplacesGoodsTracker
   hosts: server
   become: true
-  gather_facts: false
   vars:
-    project_path: "/root/MarketplacesGoodsTracker"
+    project_path: /root/MarketplacesGoodsTracker
+    repo_url: https://github.com/TimNekk/MarketplacesGoodsTracker
+    git_version: main
+    dotenv_content: "{{ lookup('ansible.builtin.env', 'DOTENV_CONTENT') | default('') }}"
   tasks:
     - name: Ensure git is installed
-      package:
+      ansible.builtin.package:
         name: git
         state: present
 
     - name: Pull latest code
-      git:
-        repo: "https://github.com/TimNekk/MarketplacesGoodsTracker"
+      ansible.builtin.git:
+        repo: "{{ repo_url }}"
         dest: "{{ project_path }}"
-        version: main
-    
+        version: "{{ git_version }}"
+        force: true
+
+    - name: Write .env from DOTENV_CONTENT
+      ansible.builtin.copy:
+        content: "{{ dotenv_content }}"
+        dest: "{{ project_path }}/.env"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+      when: dotenv_content | length > 0
+
+    - name: Check that .env exists
+      ansible.builtin.stat:
+        path: "{{ project_path }}/.env"
+      register: env_file
+      when: dotenv_content | length == 0
+
+    - name: Fail if .env is missing
+      ansible.builtin.fail:
+        msg: "No DOTENV_CONTENT provided and {{ project_path }}/.env does not exist (see .env.dist)"
+      when: dotenv_content | length == 0 and not env_file.stat.exists
+
     - name: Build and restart compose
       community.docker.docker_compose_v2:
         project_src: "{{ project_path }}"
