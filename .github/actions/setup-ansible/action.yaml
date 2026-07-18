@@ -13,9 +13,23 @@ runs:
       with:
         python-version: "3.12"
 
+    - name: Cache pip packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: pip-${{ inputs.install-lint }}-${{ hashFiles('.github/actions/setup-ansible/action.yaml') }}
+        restore-keys: |
+          pip-${{ inputs.install-lint }}-
+
     - name: Install Ansible
       shell: bash
       run: pip install ansible-core${{ inputs.install-lint == 'true' && ' ansible-lint' || '' }}
+
+    - name: Cache Ansible collections
+      uses: actions/cache@v4
+      with:
+        path: ~/.ansible/collections
+        key: galaxy-${{ hashFiles('ansible/requirements.yaml') }}
 
     - name: Install collections
       shell: bash
