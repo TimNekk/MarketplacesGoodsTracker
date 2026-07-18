@@ -1,0 +1,23 @@
+name: Set up Ansible
+description: Install Python, Ansible and required collections
+inputs:
+  install-lint:
+    description: Also install ansible-lint
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install Ansible
+      shell: bash
+      run: pip install ansible-core${{ inputs.install-lint == 'true' && ' ansible-lint' || '' }}
+
+    - name: Install collections
+      shell: bash
+      working-directory: ansible
+      run: ansible-galaxy collection install -r requirements.yaml

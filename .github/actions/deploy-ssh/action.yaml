@@ -1,0 +1,38 @@
+name: Set up deploy SSH access
+description: Configure SSH key and write the Ansible inventory for the deploy target
+inputs:
+  ssh-key:
+    description: Private SSH key for the deploy host
+    required: true
+  host:
+    description: Deploy host address
+    required: true
+  user:
+    description: SSH user on the deploy host
+    required: false
+    default: root
+runs:
+  using: composite
+  steps:
+    - name: Set up SSH
+      shell: bash
+      env:
+        DEPLOY_SSH_KEY: ${{ inputs.ssh-key }}
+        DEPLOY_HOST: ${{ inputs.host }}
+      run: |
+        mkdir -p ~/.ssh
+        printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+    - name: Write inventory
+      shell: bash
+      working-directory: ansible
+      env:
+        DEPLOY_HOST: ${{ inputs.host }}
+        DEPLOY_USER: ${{ inputs.user }}
+      run: |
+        {
+          echo "[server]"
+          echo "$DEPLOY_HOST ansible_user=$DEPLOY_USER ansible_ssh_private_key_file=~/.ssh/deploy_key"
+        } > inventory.ini

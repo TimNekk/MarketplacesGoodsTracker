@@ -6,6 +6,7 @@
     project_path: /root/MarketplacesGoodsTracker
     repo_url: https://github.com/TimNekk/MarketplacesGoodsTracker
     git_version: main
+    start_immediately: false
     dotenv_content: "{{ lookup('ansible.builtin.env', 'DOTENV_CONTENT') | default('') }}"
   tasks:
     - name: Ensure git is installed
@@ -40,6 +41,16 @@
       ansible.builtin.fail:
         msg: "No DOTENV_CONTENT provided and {{ project_path }}/.env does not exist (see .env.dist)"
       when: dotenv_content | length == 0 and not env_file.stat.exists
+
+    - name: Set Ozon run flags
+      ansible.builtin.lineinfile:
+        path: "{{ project_path }}/.env"
+        regexp: "^RUN_FLAGS="
+        line: "RUN_FLAGS={{ '-u' if start_immediately | bool else '' }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
 
     - name: Build and restart compose
       community.docker.docker_compose_v2:

@@ -1,14 +1,7 @@
-name: Deploy
+name: Check
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      start_immediately:
-        description: Start parsing immediately instead of waiting for schedule
-        type: boolean
-        default: false
+  pull_request:
 
 permissions:
   contents: read
@@ -17,13 +10,11 @@ env:
   ANSIBLE_FORCE_COLOR: "1"
 
 jobs:
-  deploy:
-    name: Deploy to production
+  check:
+    name: Dry run (--check --diff)
     runs-on: ubuntu-latest
-    environment: production
     concurrency:
       group: deploy-target
-      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,10 +29,8 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           user: ${{ vars.DEPLOY_USER || 'root' }}
 
-      - name: Apply playbook
+      - name: Dry run playbook
         working-directory: ansible
         env:
           DOTENV_CONTENT: ${{ secrets.DOTENV }}
-        run: |
-          ansible-playbook deploy.yaml --diff --extra-vars \
-            "git_version=${{ github.sha }} start_immediately=${{ inputs.start_immediately == true }}"
+        run: ansible-playbook deploy.yaml --check --diff --extra-vars "git_version=${{ github.sha }}"
