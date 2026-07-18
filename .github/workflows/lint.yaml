@@ -3,6 +3,10 @@ name: Lint
 on:
   push:
     branches: ["**"]
+    paths:
+      - "ansible/**"
+      - ".github/actions/setup-ansible/**"
+      - ".github/workflows/lint.yaml"
 
 permissions:
   contents: read
