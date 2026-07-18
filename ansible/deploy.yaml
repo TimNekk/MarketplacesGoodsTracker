@@ -47,3 +47,5 @@
         state: present
         build: always
         remove_orphans: true
+        services:
+          - ozon
