@@ -1,25 +1,117 @@
 from __future__ import annotations
 
 import json
-import os
+import random
 import re
+import threading
+import time
+from typing import Any
 
 from the_retry import retry
-from curl_cffi import requests
+from tls_client import Session
 
-from src.models import Status, OzonUrls, OzonItemPair, OzonItem
+from src.models import Status, OzonUrls, OzonItem
 from src.parsing import ItemParser
 from src.parsing.exceptions import OutOfStockException
+from src.parsing.session_parser import SessionData, get_session
 from src.utils import logger
+
+# If the new session still returns 403, wait this long before fetching another session.
+DELAY_AFTER_FAILED_SESSION_SEC = 60 * 60  # 60 minutes
+
+# List of TLS client identifiers to rotate through for fingerprint diversity
+# Type ignored because tls_client type stubs don't include newer Chrome versions
+TLS_CLIENT_IDENTIFIERS: list[Any] = [
+    "chrome_120",
+    "chrome_119",
+    "chrome_118",
+    "chrome_117",
+    "chrome_116",
+]
 
 
 class OzonParser(ItemParser):
-    _HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 YaBrowser/24.1.0.0 Safari/537.36",
-    }
-    _BASE_URL = r"https://api.ozon.ru/"
-    _PRODUCT_URL = _BASE_URL + r"entrypoint-api.bx/page/json/v2?url=%2Fproduct%2F"
-    _ADD_TO_CART_URL = _BASE_URL + r"composer-api.bx/_action/addToCart"
+    _BASE_URL = r"https://www.ozon.ru/api/composer-api.bx/"
+    _PRODUCT_URL = _BASE_URL + r"page/json/v2?url=%2Fproduct%2F"
+    _ADD_TO_CART_URL = _BASE_URL + r"_action/addToCart"
+
+    # TLS client session for requests - now managed dynamically
+    _tls_session: Session | None = None
+    _tls_client_index = 0
+
+    # Class-level session management (cookies/headers from Selenium)
+    _session: SessionData | None = None
+    _session_lock = threading.Lock()
+    _refresh_lock = threading.Lock()
+    _success_since_refresh = True
+
+    @classmethod
+    def _create_tls_session(cls) -> Session:
+        """Create a fresh TLS session with rotating client identifier."""
+        client_id = TLS_CLIENT_IDENTIFIERS[
+            cls._tls_client_index % len(TLS_CLIENT_IDENTIFIERS)
+        ]
+        cls._tls_client_index += 1
+        logger.debug(f"Creating new TLS session with client identifier: {client_id}")
+        return Session(
+            client_identifier=client_id,
+            random_tls_extension_order=True,
+        )
+
+    @classmethod
+    def _get_tls_session(cls) -> Session:
+        """Get or create TLS session."""
+        if cls._tls_session is None:
+            cls._tls_session = cls._create_tls_session()
+        return cls._tls_session
+
+    @classmethod
+    def _get_session(cls) -> SessionData:
+        """Get current session or create a new one if none exists."""
+        with cls._session_lock:
+            if cls._session is None:
+                cls._session = get_session()
+            return cls._session
+
+    @classmethod
+    def _refresh_session_on_403(cls) -> None:
+        """Refresh session when 403 is encountered. Thread-safe with delay if no success."""
+        with cls._session_lock:
+            need_delay = not cls._success_since_refresh
+            old_session = cls._session
+
+        if need_delay:
+            logger.warning(
+                f"Previous session had no success, waiting {DELAY_AFTER_FAILED_SESSION_SEC // 60} minutes before refresh"
+            )
+            time.sleep(DELAY_AFTER_FAILED_SESSION_SEC)
+
+        with cls._refresh_lock:
+            # Another thread may have already refreshed while we waited
+            with cls._session_lock:
+                if cls._session is not old_session:
+                    logger.info("Session already refreshed by another thread, skipping")
+                    return
+
+            logger.warning("Refreshing Ozon session due to 403 error")
+
+            # Recreate TLS session to clear stale connection state
+            logger.info("Recreating TLS client session...")
+            cls._tls_session = cls._create_tls_session()
+
+            new_session = get_session()
+
+            with cls._session_lock:
+                cls._session = new_session
+                cls._success_since_refresh = False
+
+            logger.info("Session refreshed successfully")
+
+    @classmethod
+    def _mark_success(cls) -> None:
+        """Mark that a successful request was made with the current session."""
+        with cls._session_lock:
+            cls._success_since_refresh = True
 
     @staticmethod
     def price_to_number(price: str) -> int:
@@ -66,96 +158,132 @@ class OzonParser(ItemParser):
         )
 
     @staticmethod
-    def _get_quantity(response: dict) -> int:
-        return response["cart"]["cartItems"][0]["qty"]
+    def _get_quantity(response: dict, sku: int) -> int:
+        for cart_item in response["cart"]["cartItems"]:
+            if cart_item["id"] == sku:
+                return cart_item["qty"]
+        raise Exception("Product not found in cart")
 
     @staticmethod
-    def get_items(urls: OzonUrls) -> list[OzonItemPair]:
+    def get_items(urls: OzonUrls) -> list[OzonItem]:
         items = []
 
-        for urls_tuple in urls:
-            fbs, fbo = None, None
-            if urls_tuple[0] != "":
-                fbs = OzonParser._get_item(urls_tuple[0])
-            if urls_tuple[1] != "":
-                fbo = OzonParser._get_item(urls_tuple[1])
+        for url in urls:
+            item = None
+            if url != "":
+                item = OzonParser._get_item(url)
 
-            if fbo or fbs:
-                items.append(OzonItemPair(fbs=fbs, fbo=fbo))
+            if item:
+                items.append(item)
+
+            time.sleep(random.randint(4, 6) + random.random() * 2)
 
         return items
 
     @staticmethod
     def return_error_item_on_exception(raise_exception=False):
         def decorator(func):
-            def get_item(url: str):
+            def get_item(cls_or_url, url: str = None):
+                # Support both static methods (url only) and classmethods (cls, url)
+                if url is None:
+                    actual_url = cls_or_url
+                    args = (actual_url,)
+                else:
+                    actual_url = url
+                    args = (cls_or_url, url)
+
                 try:
-                    item = func(url)
+                    item = func(*args)
                 except Exception as e:
                     if raise_exception:
                         raise e
 
-                    item = OzonItem(url=url, status=Status.PARSING_ERROR)
+                    item = OzonItem(url=actual_url, status=Status.PARSING_ERROR)
                 return item
 
             return get_item
 
         return decorator
 
-    @staticmethod
+    @classmethod
     @return_error_item_on_exception()
     @retry(attempts=3, backoff=5, exponential_backoff=True)
-    def _get_item(url: str) -> OzonItem | None:
+    def _get_item(cls, url: str) -> OzonItem | None:
         logger.info(f"Getting item from: {url}...")
 
-        url_part, sku = OzonParser.extract_url_parts(url)
+        url_part, sku = cls.extract_url_parts(url)
 
         if url_part is None or sku is None:
             logger.debug(f"Wrong url passed ({url})")
             return None
 
-        proxy_url = os.environ.get("PROXY_URL")
+        proxy_url = None
+        # proxy_url = os.environ.get("PROXY_URL")
+        session = cls._get_session()
+        tls_session = cls._get_tls_session()
 
-        response_price = requests.get(
-            url=OzonParser._PRODUCT_URL + url_part,
-            headers=OzonParser._HEADERS,
-            impersonate="chrome116",
-            proxies={"https": proxy_url},
+        response_price = tls_session.get(
+            url=cls._PRODUCT_URL + url_part,
+            headers=session.headers,
+            cookies=session.cookies,
+            proxy=proxy_url,
+            allow_redirects=True,
         )
 
+        if response_price.status_code == 403:
+            logger.warning("Got 403 response, refreshing session...")
+            cls._refresh_session_on_403()
+            raise Exception("Session expired (403), retrying with new session")
+
+        if response_price.status_code >= 500:
+            logger.warning(f"Server error ({response_price.text}), retrying...")
+            raise Exception("Server error")
+
+        if response_price.status_code == 302:
+            logger.info("Item out of stock")
+            return OzonItem(url=url, status=Status.OUT_OF_STOCK)
+
         if response_price.status_code != 200:
-            logger.debug(
+            logger.warning(
                 f"Got error response from Ozon prices: {response_price.status_code}"
             )
-            return None
+            return OzonItem(url=url, status=Status.PARSING_ERROR)
+
+        cls._mark_success()
 
         try:
-            price, green_price = OzonParser._get_prices(response_price.json())
+            price, green_price = cls._get_prices(response_price.json())
         except OutOfStockException as e:
             logger.info(e)
             return OzonItem(url=url, status=Status.OUT_OF_STOCK)
 
-        _, redirect_sku = OzonParser.extract_url_parts(response_price.url)
+        _, redirect_sku = cls.extract_url_parts(response_price.url)
 
-        response_quantity = requests.post(
-            url=OzonParser._ADD_TO_CART_URL,
+        response_quantity = tls_session.post(
+            url=cls._ADD_TO_CART_URL,
             data=json.dumps([{"id": redirect_sku, "quantity": 2000}]),
-            headers=OzonParser._HEADERS,
-            impersonate="chrome116",
-            cookies={
-                "__Secure-refresh-token": "7.0.SYkxK0SbQDmpHVoYJlekhQ.27.AerWva9-O_8-OHJlQRm3IhRExoT2P57SRnrAQ5OzeSN4JU7mVOlUx4eEnV50rLM_DA..20250402222635.j1sYDuPdWbOofvVcWx8P9mh8MwU4sfgSUy--fVLNszc.14bcdb1c048d6dded",
-                "abt_data": "7.mnQH91CIDBEENuO5RR0CsCgjWPdOFL0TYfxZCbi-nG-PvBc8Lcy7e7nkYO4CnQfrpjmPopyMaoe3jpFVDGjMXWeQLQ5SdULAQ774fJdLRMy92TeEjzgJNrNwy0I14ba5QvzflpQZaQROoO1Col2e5vDce_Ry_ZZPBvB8OpjE-pMZLGlDRt74QEuxFSXOscVUdj61tQmM4T27gyTKVJ5IgJFrKzHksBQTsNhgIeJtBWMcPkZt58hf2zCf4_wQfCDUn9GebtiLghqUkJfk4o-vDCN8OtBqqOlmcSlcQc7KYQyTnZn15m-A2XyZnICnbCycRif6HVrYmmzz5KQ1XN84mFiI187fSfFLoYmu43dxuaG2zZNu1LT-VUVwa49lIEU1JFh4DkVaU0suwboT3J4EZypUPM1fTQ4mwDlmD0QTXVHvYE0y4DEQdrPJYyfx1sMt4yWhFHQAtx91WYGAIT9qNl5BunWS_VmHphnVjvb60scqJEJKGAhQOPEFK4oK9G2CV36Unylj7431p5O3VTgB3VxMudX0Qx4x2RW5droIPD9fDC780k54fs6TSf69t1C7ab_PJELJ2NQDrNgrWd3P7f9Suh_K_H6P",
-            },
-            proxies={"https": proxy_url},
+            headers=session.headers,
+            cookies=session.cookies,
+            proxy=proxy_url,
+            allow_redirects=True,
         )
 
+        if response_quantity.status_code == 403:
+            logger.warning("Got 403 response on cart request, refreshing session...")
+            cls._refresh_session_on_403()
+            raise Exception("Session expired (403), retrying with new session")
+
+        if response_quantity.status_code >= 500:
+            logger.warning(f"Server error ({response_quantity.text}), retrying...")
+            raise Exception("Server error")
+
         if response_quantity.status_code != 200:
-            logger.debug(
+            logger.warning(
                 f"Got error response from Ozon cart: {response_quantity.status_code}"
             )
-            return None
+            return OzonItem(url=url, status=Status.PARSING_ERROR)
 
-        quantity = OzonParser._get_quantity(response_quantity.json())
+        quantity = cls._get_quantity(response_quantity.json(), redirect_sku)
 
         item = OzonItem(
             url=url,
@@ -165,17 +293,16 @@ class OzonParser(ItemParser):
             green_price=green_price,
         )
 
-        response_quantity = requests.post(
-            url=OzonParser._ADD_TO_CART_URL,
-            data=json.dumps([{"id": redirect_sku}]),
-            headers=OzonParser._HEADERS,
-            impersonate="chrome116",
-            cookies={
-                "__Secure-refresh-token": "7.0.SYkxK0SbQDmpHVoYJlekhQ.27.AerWva9-O_8-OHJlQRm3IhRExoT2P57SRnrAQ5OzeSN4JU7mVOlUx4eEnV50rLM_DA..20250402222635.j1sYDuPdWbOofvVcWx8P9mh8MwU4sfgSUy--fVLNszc.14bcdb1c048d6dded",
-                "abt_data": "7.mnQH91CIDBEENuO5RR0CsCgjWPdOFL0TYfxZCbi-nG-PvBc8Lcy7e7nkYO4CnQfrpjmPopyMaoe3jpFVDGjMXWeQLQ5SdULAQ774fJdLRMy92TeEjzgJNrNwy0I14ba5QvzflpQZaQROoO1Col2e5vDce_Ry_ZZPBvB8OpjE-pMZLGlDRt74QEuxFSXOscVUdj61tQmM4T27gyTKVJ5IgJFrKzHksBQTsNhgIeJtBWMcPkZt58hf2zCf4_wQfCDUn9GebtiLghqUkJfk4o-vDCN8OtBqqOlmcSlcQc7KYQyTnZn15m-A2XyZnICnbCycRif6HVrYmmzz5KQ1XN84mFiI187fSfFLoYmu43dxuaG2zZNu1LT-VUVwa49lIEU1JFh4DkVaU0suwboT3J4EZypUPM1fTQ4mwDlmD0QTXVHvYE0y4DEQdrPJYyfx1sMt4yWhFHQAtx91WYGAIT9qNl5BunWS_VmHphnVjvb60scqJEJKGAhQOPEFK4oK9G2CV36Unylj7431p5O3VTgB3VxMudX0Qx4x2RW5droIPD9fDC780k54fs6TSf69t1C7ab_PJELJ2NQDrNgrWd3P7f9Suh_K_H6P",
-            },
-            proxies={"https": proxy_url},
-        )
+        for cart_item in response_quantity.json()["cart"]["cartItems"]:
+            logger.debug(f"Remove item from cart: {cart_item}")
+            tls_session.post(
+                url=cls._ADD_TO_CART_URL,
+                data=json.dumps([{"id": cart_item["id"]}]),
+                headers=session.headers,
+                cookies=session.cookies,
+                proxy=proxy_url,
+                allow_redirects=True,
+            )
 
         logger.info(f"Got item: {item}")
         return item

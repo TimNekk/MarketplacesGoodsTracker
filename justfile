@@ -1,21 +1,51 @@
-start:
-    docker compose up -d
+set shell := ["bash", "-uc"]
+set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
-start-oz:
-    docker compose up -d ozon
+dc := "docker compose"
 
-start-wb:
-    docker compose up -d wildberries
+# List available recipes
+default:
+    @just --list
 
-stop:
-    docker compose down
+[private]
+[no-exit-message]
+[windows]
+check-docker:
+    @powershell -Command "if ((Get-Process 'com.docker.backend' -ErrorAction SilentlyContinue) -or (Get-Process 'dockerd' -ErrorAction SilentlyContinue)) { Write-Host 'Docker is running'; exit 0 } else { Write-Host 'Docker is not running'; exit 1 }"
 
-restart:
-    docker compose down
-    docker compose up -d
+[private]
+[no-exit-message]
+[unix]
+check-docker:
+    @if docker info > /dev/null 2>&1; then echo "Docker is running"; else echo "Docker is not running"; exit 1; fi
 
-logs:
-    docker compose logs -f
+# Start App
+up: check-docker
+    {{dc}} up --build -d ozon
+    @just logs
 
-build:
-    docker compose build
+# Stop App
+down: check-docker
+    {{dc}} down
+
+# Restart App
+restart: down up
+
+# Show logs
+logs tail="200": check-docker
+    {{dc}} logs -f --tail={{tail}}
+
+# Upgrade to a specific migration or latest (head)
+upgrade target="head": check-docker
+    {{dc}} build bot
+    {{dc}} run --rm migrator alembic upgrade {{target}}
+
+# Generate migration
+revision name: check-docker
+    {{dc}} build bot
+    {{dc}} run --rm migrator alembic revision --autogenerate -m "{{name}}"
+
+# Downgrade by a specified number of revisions (default is 1)
+downgrade target="-1": check-docker
+    {{dc}} build bot
+    {{dc}} run --rm migrator alembic downgrade {{target}}

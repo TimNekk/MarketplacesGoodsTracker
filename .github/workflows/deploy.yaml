@@ -1,0 +1,140 @@
+name: Deploy
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ANSIBLE_FORCE_COLOR: "1"
+
+jobs:
+  lint:
+    name: Lint playbooks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ansible
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible and ansible-lint
+        run: pip install ansible-core ansible-lint
+
+      - name: Install collections
+        run: ansible-galaxy collection install -r requirements.yaml
+
+      - name: Run ansible-lint
+        run: ansible-lint
+
+  check:
+    name: Dry run (--check --diff)
+    if: github.event_name == 'pull_request'
+    needs: lint
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-target
+    defaults:
+      run:
+        working-directory: ansible
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible
+        run: pip install ansible-core
+
+      - name: Install collections
+        run: ansible-galaxy collection install -r requirements.yaml
+
+      - name: Set up SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Write inventory
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER || 'root' }}
+        run: |
+          {
+            echo "[server]"
+            echo "$DEPLOY_HOST ansible_user=$DEPLOY_USER ansible_ssh_private_key_file=~/.ssh/deploy_key"
+          } > inventory.ini
+
+      - name: Dry run playbook
+        env:
+          DOTENV_CONTENT: ${{ secrets.DOTENV }}
+        run: ansible-playbook deploy.yaml --check --diff --extra-vars "git_version=${{ github.sha }}"
+
+  deploy:
+    name: Deploy to production
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: lint
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: deploy-target
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: ansible
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible
+        run: pip install ansible-core
+
+      - name: Install collections
+        run: ansible-galaxy collection install -r requirements.yaml
+
+      - name: Set up SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Write inventory
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER || 'root' }}
+        run: |
+          {
+            echo "[server]"
+            echo "$DEPLOY_HOST ansible_user=$DEPLOY_USER ansible_ssh_private_key_file=~/.ssh/deploy_key"
+          } > inventory.ini
+
+      - name: Apply playbook
+        env:
+          DOTENV_CONTENT: ${{ secrets.DOTENV }}
+        run: ansible-playbook deploy.yaml --diff --extra-vars "git_version=${{ github.sha }}"
