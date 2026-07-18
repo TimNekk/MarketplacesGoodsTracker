@@ -85,7 +85,7 @@ jobs:
       - name: Dry run playbook
         env:
           DOTENV_CONTENT: ${{ secrets.DOTENV }}
-        run: ansible-playbook deploy.yaml --check --diff
+        run: ansible-playbook deploy.yaml --check --diff --extra-vars "git_version=${{ github.sha }}"
 
   deploy:
     name: Deploy to production
