@@ -1,32 +1,15 @@
-import logging
-from logging.handlers import TimedRotatingFileHandler
+import os
+import sys
 
-import coloredlogs
+from loguru import logger
 
+logger.remove()
 
-def _check_and_create_logging_directory(path):
-    import os
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-
-fmt = "%(asctime)s [%(levelname)s] - (%(filename)s).%(funcName)s(%(lineno)d) > %(message)s"
-log_directory = "logs/"
-
-_check_and_create_logging_directory(log_directory)
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-coloredlogs.install(level="INFO", logger=logger, fmt=fmt)
-
-
-def initialize_file_logger(file_suffix: str):
-    log_file = f"{file_suffix}.log"
-    file_handler_suffix = "%d-%m-%Y.log"
-
-    file_handler = TimedRotatingFileHandler(log_directory + log_file, when="midnight", interval=1)
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.suffix = file_handler_suffix
-    file_handler.setFormatter(logging.Formatter(fmt))
-
-    logger.addHandler(file_handler)
+logger.add(
+    sys.stdout,
+    level=os.getenv("LOG_LEVEL", "DEBUG"),
+    serialize=os.getenv("LOG_JSON", "true").lower() == "true",
+    backtrace=False,
+    diagnose=False,
+    enqueue=True,
+)

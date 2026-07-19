@@ -28,6 +28,7 @@ FROM python:3.12-slim-bookworm AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUTF8=1 \
     PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
