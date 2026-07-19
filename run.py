@@ -9,7 +9,6 @@ from src import App
 from src.config import CREDENTIAL
 from src.models import OZON, WILDBERRIES
 from src.utils import logger
-from src.utils.logger import initialize_file_logger
 
 
 def parse_args() -> Namespace:
@@ -46,7 +45,6 @@ def main() -> None:
     else:
         logger.warning("No marketplace specified. Use -h for help")
         return
-    initialize_file_logger(marketplace.name)
 
     app = App(CREDENTIAL, marketplace)
     logger.debug("App initialized")
