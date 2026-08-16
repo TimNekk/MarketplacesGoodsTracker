@@ -52,6 +52,27 @@
         group: root
         mode: "0600"
 
+    - name: Ensure data directory exists and is writable by the container user
+      ansible.builtin.file:
+        path: "{{ project_path }}/data"
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: "0700"
+
+    - name: Check that the Ozon browser profile is present
+      ansible.builtin.stat:
+        path: "{{ project_path }}/data/ozon_profile"
+      register: ozon_profile
+
+    - name: Warn if the Ozon browser profile is missing
+      ansible.builtin.debug:
+        msg: >-
+          No Ozon profile at {{ project_path }}/data/ozon_profile.
+          Run scripts/ozon_login.py locally and rsync data/ to the server,
+          otherwise parsing returns errors instead of authenticated prices.
+      when: not ozon_profile.stat.exists
+
     - name: Build and restart compose
       community.docker.docker_compose_v2:
         project_src: "{{ project_path }}"
