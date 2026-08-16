@@ -1,10 +1,20 @@
+from __future__ import annotations
+
 import re
+import threading
+import time
 
 from requests import Session
+from the_retry import retry
 
 from src.models import Status, WildberriesUrls, WildberriesItem
 from src.parsing import ItemParser
+from src.parsing.session_parser import SessionData
+from src.parsing.wildberries_session_parser import get_session
 from src.utils import logger
+
+# If the new session still returns an auth error, wait this long before fetching another session.
+DELAY_AFTER_FAILED_SESSION_SEC = 60 * 60  # 60 minutes
 
 
 class WildberriesParser(ItemParser):
@@ -23,16 +33,62 @@ class WildberriesParser(ItemParser):
         'sec-fetch-dest': 'empty',
         'sec-fetch-mode': 'cors',
         'sec-fetch-site': 'same-origin',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
         'x-requested-with': 'XMLHttpRequest',
         'x-spa-version': '14.19.3',
     }
-    COOKIES = {
-        'x_wbaas_token': '1.1000.877ba0390b234b61991457eaed767967.MHw0Ni4xODguODIuMTF8TW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzE1MS4wLjAuMCBTYWZhcmkvNTM3LjM2fDE3ODY3OTE3ODd8cmV1c2FibGV8MnxleUpvWVhOb0lqb2lJbjA9fDF8M3wxNzg2NjYyMTg3fDE=.MEUCIQDQ8oQM0wQv96A22C0qLsAqY4TVMoRR7qfxQkxJ3wt8ewIgFLNq2HHHCJQ97fL/MKVRX19/3TCdeDxmIIpn9MDqb7I=',
-    }
 
-    @staticmethod
-    def get_items(urls: WildberriesUrls) -> list[WildberriesItem]:
+    # Class-level session management (cookies/headers from Camoufox)
+    _session: SessionData | None = None
+    _session_lock = threading.Lock()
+    _refresh_lock = threading.Lock()
+    _success_since_refresh = True
+
+    @classmethod
+    def _get_session(cls) -> SessionData:
+        """Get current session or create a new one if none exists."""
+        with cls._session_lock:
+            if cls._session is None:
+                cls._session = get_session()
+            return cls._session
+
+    @classmethod
+    def _refresh_session_on_failure(cls) -> None:
+        """Refresh session when the token is rejected. Thread-safe with delay if no success."""
+        with cls._session_lock:
+            need_delay = not cls._success_since_refresh
+            old_session = cls._session
+
+        if need_delay:
+            logger.warning(
+                f"Previous session had no success, waiting {DELAY_AFTER_FAILED_SESSION_SEC // 60} minutes before refresh"
+            )
+            time.sleep(DELAY_AFTER_FAILED_SESSION_SEC)
+
+        with cls._refresh_lock:
+            # Another thread may have already refreshed while we waited
+            with cls._session_lock:
+                if cls._session is not old_session:
+                    logger.info("Session already refreshed by another thread, skipping")
+                    return
+
+            logger.warning("Refreshing Wildberries session due to auth error")
+
+            new_session = get_session()
+
+            with cls._session_lock:
+                cls._session = new_session
+                cls._success_since_refresh = False
+
+            logger.info("Session refreshed successfully")
+
+    @classmethod
+    def _mark_success(cls) -> None:
+        """Mark that a successful request was made with the current session."""
+        with cls._session_lock:
+            cls._success_since_refresh = True
+
+    @classmethod
+    def get_items(cls, urls: WildberriesUrls) -> list[WildberriesItem]:
         items = []
 
         for url in urls:
@@ -41,7 +97,7 @@ class WildberriesParser(ItemParser):
             code = re.findall(r"catalog\/(\d+)", url)[0]
 
             try:
-                quantity, price, status = WildberriesParser._get_item_values(code, WildberriesParser.SALE_AMOUNT)
+                quantity, price, status = cls._get_item_values(code, cls.SALE_AMOUNT)
             except ValueError as e:
                 logger.warning(e)
                 continue
@@ -59,35 +115,50 @@ class WildberriesParser(ItemParser):
 
         return items
 
-    @staticmethod
-    def _get_item_values(code: str, sale_amount: int) -> tuple[int, int, Status]:
+    @classmethod
+    @retry(attempts=3, backoff=5, exponential_backoff=True)
+    def _get_item_values(cls, code: str, sale_amount: int) -> tuple[int, int, Status]:
+        session_data = cls._get_session()
+
+        card_url = "https://www.wildberries.ru/__internal/u-card/cards/v4/detail"
+        params = {
+            "nm": code,
+            "spp": sale_amount,
+            "dest": cls.DESTINATION,
+        }
         with Session() as session:
-            card_url = "https://www.wildberries.ru/__internal/u-card/cards/v4/detail"
-            params = {
-                "nm": code,
-                "spp": sale_amount,
-                "dest": WildberriesParser.DESTINATION,
-            }
             response = session.get(
-                card_url, 
+                card_url,
                 params=params,
-                headers=WildberriesParser.HEADERS,
-                cookies=WildberriesParser.COOKIES,
+                headers={**cls.HEADERS, **session_data.headers},
+                cookies=session_data.cookies,
             )
-        response_json = response.json()
+
+        if response.status_code in (401, 403, 498):
+            logger.warning(f"Got {response.status_code} response, refreshing session...")
+            cls._refresh_session_on_failure()
+            raise Exception(f"Session expired ({response.status_code}), retrying with new session")
+
+        if response.status_code >= 500:
+            logger.warning(f"Server error ({response.text}), retrying...")
+            raise Exception("Server error")
+
+        try:
+            response_json = response.json()
+        except Exception:
+            logger.warning(f"Failed to parse response: {response.status_code} {response.text}, retrying...")
+            raise Exception("Failed to parse response")
 
         if not response_json.get("products"):
             raise ValueError(f"Item with code \"{code}\" not found")
 
-        good = response_json.get("products", [])[0]
-        price = int(good.get("sizes", [])[0].get("price", {}).get("product") / 100)
+        cls._mark_success()
 
-        status = Status.OUT_OF_STOCK
-        quantity = 0
-        stocks = good.get("sizes", [])[0].get("stocks", [])
-        if stocks:
-            quantity = sum([int(stock.get("qty")) for stock in stocks])
-            status = Status.OK
+        good = response_json.get("products", [])[0]
+        price = int(good.get("sizes", [])[0].get("price", {}).get("product", 0) / 100)
+
+        quantity = good.get("totalQuantity")
+        status = Status.OK if quantity > 0 else Status.OUT_OF_STOCK
 
         return quantity, price, status
 

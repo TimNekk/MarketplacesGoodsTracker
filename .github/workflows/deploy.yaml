@@ -3,8 +3,12 @@ name: Deploy
 on:
   workflow_dispatch:
     inputs:
-      start_immediately:
-        description: Start parsing immediately instead of waiting for schedule
+      start_ozon_immediately:
+        description: Start Ozon parsing immediately instead of waiting for schedule
+        type: boolean
+        default: false
+      start_wildberries_immediately:
+        description: Start Wildberries parsing immediately instead of waiting for schedule
         type: boolean
         default: false
 
@@ -42,4 +46,4 @@ jobs:
           DOTENV_CONTENT: ${{ secrets.DOTENV }}
         run: |
           ansible-playbook deploy.yaml --diff --extra-vars \
-            "git_version=${{ github.sha }} start_immediately=${{ inputs.start_immediately == true }}"
+            "git_version=${{ github.sha }} start_ozon_immediately=${{ inputs.start_ozon_immediately == true }} start_wildberries_immediately=${{ inputs.start_wildberries_immediately == true }}"

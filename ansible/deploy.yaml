@@ -6,7 +6,8 @@
     project_path: /root/MarketplacesGoodsTracker
     repo_url: https://github.com/TimNekk/MarketplacesGoodsTracker
     git_version: main
-    start_immediately: false
+    start_ozon_immediately: false
+    start_wildberries_immediately: false
     dotenv_content: "{{ lookup('ansible.builtin.env', 'DOTENV_CONTENT') | default('') }}"
   tasks:
     - name: Ensure git is installed
@@ -45,18 +46,60 @@
     - name: Set Ozon run flags
       ansible.builtin.lineinfile:
         path: "{{ project_path }}/.env"
-        regexp: "^RUN_FLAGS="
-        line: "RUN_FLAGS={{ '-u' if start_immediately | bool else '' }}"
+        regexp: "^OZON_RUN_FLAGS="
+        line: "OZON_RUN_FLAGS={{ '-u' if start_ozon_immediately | bool else '' }}"
         create: true
         owner: root
         group: root
         mode: "0600"
 
-    - name: Build and restart compose
-      community.docker.docker_compose_v2:
-        project_src: "{{ project_path }}"
-        state: present
-        build: always
-        remove_orphans: true
-        services:
-          - ozon
+    - name: Set Wildberries run flags
+      ansible.builtin.lineinfile:
+        path: "{{ project_path }}/.env"
+        regexp: "^WILDBERRIES_RUN_FLAGS="
+        line: "WILDBERRIES_RUN_FLAGS={{ '-u' if start_wildberries_immediately | bool else '' }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Deploy Ozon service
+      block:
+        - name: Build and restart Ozon
+          community.docker.docker_compose_v2:
+            project_src: "{{ project_path }}"
+            state: present
+            build: always
+            services:
+              - ozon
+      rescue:
+        - name: Record Ozon deploy failure
+          ansible.builtin.set_fact:
+            ozon_failed: true
+        - name: Warn about Ozon deploy failure
+          ansible.builtin.debug:
+            msg: "Ozon deploy failed, continuing to Wildberries"
+
+    - name: Deploy Wildberries service
+      block:
+        - name: Build and restart Wildberries
+          community.docker.docker_compose_v2:
+            project_src: "{{ project_path }}"
+            state: present
+            build: always
+            services:
+              - wildberries
+      rescue:
+        - name: Record Wildberries deploy failure
+          ansible.builtin.set_fact:
+            wildberries_failed: true
+        - name: Warn about Wildberries deploy failure
+          ansible.builtin.debug:
+            msg: "Wildberries deploy failed"
+
+    - name: Fail if any service failed to deploy
+      vars:
+        failed_services: "{{ (['ozon'] if ozon_failed | default(false) else []) + (['wildberries'] if wildberries_failed | default(false) else []) }}"
+      ansible.builtin.fail:
+        msg: "Deploy failed for: {{ failed_services | join(', ') }}"
+      when: failed_services | length > 0
