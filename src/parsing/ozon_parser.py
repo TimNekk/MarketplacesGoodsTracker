@@ -19,14 +19,12 @@ from src.utils import logger
 # If the new session still returns 403, wait this long before fetching another session.
 DELAY_AFTER_FAILED_SESSION_SEC = 60 * 60  # 60 minutes
 
-# List of TLS client identifiers to rotate through for fingerprint diversity
-# Type ignored because tls_client type stubs don't include newer Chrome versions
+# TLS client identifiers rotated through on session refresh. Firefox, to match
+# the Camoufox profile the cookies and User-Agent come from.
+# Type ignored because tls_client type stubs don't include every version.
 TLS_CLIENT_IDENTIFIERS: list[Any] = [
-    "chrome_120",
-    "chrome_119",
-    "chrome_118",
-    "chrome_117",
-    "chrome_116",
+    "firefox_120",
+    "firefox_117",
 ]
 
 
@@ -220,6 +218,14 @@ class OzonParser(ItemParser):
         proxy_url = None
         # proxy_url = os.environ.get("PROXY_URL")
         session = cls._get_session()
+
+        if not session.is_authenticated:
+            logger.error(
+                "Ozon session is not authenticated, prices would be anonymous ones. "
+                "Log in again with scripts/ozon_login.py"
+            )
+            return OzonItem(url=url, status=Status.PARSING_ERROR)
+
         tls_session = cls._get_tls_session()
 
         response_price = tls_session.get(
