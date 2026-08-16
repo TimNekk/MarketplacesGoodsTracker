@@ -14,7 +14,7 @@ services:
       - TZ
       - START_TIME=${OZON_START_TIME}
       - PROXY_URL=${PROXY_URL}
-    command: python run.py -oz ${RUN_FLAGS:-} -t ${OZON_START_TIME}
+    command: python run.py -oz ${OZON_RUN_FLAGS:-} -t ${OZON_START_TIME}
 
   wildberries:
     container_name: marketplaces-goods-tracker-wildberries
@@ -29,4 +29,4 @@ services:
     environment:
       - TZ
       - START_TIME=${WILDBERRIES_START_TIME}
-    command: python run.py -wb ${RUN_FLAGS:-} -t ${WILDBERRIES_START_TIME}
+    command: python run.py -wb ${WILDBERRIES_RUN_FLAGS:-} -t ${WILDBERRIES_START_TIME}

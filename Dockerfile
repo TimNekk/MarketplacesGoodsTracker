@@ -51,7 +51,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libnss3 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m appuser
+RUN useradd -m appuser \
+    && mkdir -p /tmp/.X11-unix \
+    && chown root:root /tmp/.X11-unix \
+    && chmod 1777 /tmp/.X11-unix
 
 COPY --from=builder --chown=appuser:appuser /app /app
 COPY --from=builder --chown=appuser:appuser /camoufox-cache /home/appuser/.cache/camoufox
