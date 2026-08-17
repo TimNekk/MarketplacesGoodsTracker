@@ -89,7 +89,7 @@ def open_profile(headless: bool | str = "virtual") -> Iterator[BrowserContext]:
         persistent_context=True,
         user_data_dir=str(PROFILE_DIR),
         config=config,
-        os="windows",
+        os="linux" if sys.platform.startswith("linux") else "windows",
         headless=headless,
         geoip=True,
         humanize=2.0,
@@ -101,29 +101,9 @@ def open_profile(headless: bool | str = "virtual") -> Iterator[BrowserContext]:
         _save_fingerprint(config)
 
 
-def _headless_mode(headless: bool) -> bool | str:
+def headless_mode(headless: bool) -> bool | str:
     if not headless:
         return False
     # The Xvfb backed headful mode only exists on Linux (the container), local
     # runs on Windows/macOS fall back to real headless.
     return "virtual" if sys.platform.startswith("linux") else True
-
-
-def get_session(headless: bool = True) -> SessionData:
-    with open_profile(_headless_mode(headless)) as context:
-        page = context.pages[0] if context.pages else context.new_page()
-
-        with page.expect_request(ENTRYPOINT_REQUEST, timeout=REQUEST_TIMEOUT_MS):
-            page.goto(OZON_URL)
-
-        user_agent = page.evaluate("() => navigator.userAgent")
-        cookies = {c["name"]: c["value"] for c in context.cookies()}
-
-    session = SessionData(cookies=cookies, headers={"user-agent": user_agent})
-
-    if session.is_authenticated:
-        logger.info(f"Got authenticated session (user id {cookies[USER_ID_COOKIE]})")
-    else:
-        logger.warning("Got anonymous session, prices will not match a logged in user")
-
-    return session

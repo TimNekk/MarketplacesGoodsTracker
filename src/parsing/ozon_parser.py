@@ -5,27 +5,90 @@ import random
 import re
 import threading
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from the_retry import retry
-from tls_client import Session
+from playwright.sync_api import BrowserContext, Page
 
 from src.models import Status, OzonUrls, OzonItem
 from src.parsing import ItemParser
 from src.parsing.exceptions import OutOfStockException
-from src.parsing.session_parser import SessionData, get_session
+from src.parsing.ozon_session_parser import (
+    ENTRYPOINT_REQUEST,
+    OZON_URL,
+    REQUEST_TIMEOUT_MS,
+    SessionData,
+    headless_mode,
+    open_profile,
+)
 from src.utils import logger
 
 # If the new session still returns 403, wait this long before fetching another session.
 DELAY_AFTER_FAILED_SESSION_SEC = 60 * 60  # 60 minutes
 
-# TLS client identifiers rotated through on session refresh. Firefox, to match
-# the Camoufox profile the cookies and User-Agent come from.
-# Type ignored because tls_client type stubs don't include every version.
-TLS_CLIENT_IDENTIFIERS: list[Any] = [
-    "firefox_120",
-    "firefox_117",
-]
+# Runs inside the authenticated page via page.evaluate, so requests carry the
+# real Firefox TLS/HTTP2 stack and headers instead of a separately spoofed
+# client - Ozon's antibot blocks the latter outright even with valid cookies.
+_FETCH_JS = """
+async ({url, method, body}) => {
+    const res = await fetch(url, {
+        method,
+        credentials: 'include',
+        headers: body !== null ? {'Content-Type': 'application/json'} : {},
+        body: body !== null ? body : undefined,
+    });
+    let json = null;
+    try { json = await res.json(); } catch (e) {}
+    return {status: res.status, url: res.url, json};
+}
+"""
+
+
+@dataclass
+class FetchResult:
+    status: int
+    url: str
+    json: Any
+
+
+class OzonBrowserSession:
+    """Authenticated Camoufox page kept open for the process lifetime."""
+
+    def __init__(self) -> None:
+        self._context_cm = open_profile(headless_mode(True))
+        self.context: BrowserContext = self._context_cm.__enter__()
+        try:
+            self.page: Page = (
+                self.context.pages[0] if self.context.pages else self.context.new_page()
+            )
+
+            with self.page.expect_request(ENTRYPOINT_REQUEST, timeout=REQUEST_TIMEOUT_MS):
+                self.page.goto(OZON_URL)
+        except BaseException:
+            self._context_cm.__exit__(None, None, None)
+            raise
+
+        if self.is_authenticated:
+            logger.info(f"Got authenticated session (user id {self._user_id()})")
+        else:
+            logger.warning("Got anonymous session, prices will not match a logged in user")
+
+    def _user_id(self) -> str:
+        cookies = {c["name"]: c["value"] for c in self.context.cookies()}
+        return cookies.get("__Secure-user-id", "0")
+
+    @property
+    def is_authenticated(self) -> bool:
+        cookies = {c["name"]: c["value"] for c in self.context.cookies()}
+        return SessionData(cookies=cookies, headers={}).is_authenticated
+
+    def fetch(self, url: str, method: str = "GET", body: str | None = None) -> FetchResult:
+        result = self.page.evaluate(_FETCH_JS, {"url": url, "method": method, "body": body})
+        return FetchResult(status=result["status"], url=result["url"], json=result["json"])
+
+    def close(self) -> None:
+        self._context_cm.__exit__(None, None, None)
 
 
 class OzonParser(ItemParser):
@@ -33,42 +96,17 @@ class OzonParser(ItemParser):
     _PRODUCT_URL = _BASE_URL + r"page/json/v2?url=%2Fproduct%2F"
     _ADD_TO_CART_URL = _BASE_URL + r"_action/addToCart"
 
-    # TLS client session for requests - now managed dynamically
-    _tls_session: Session | None = None
-    _tls_client_index = 0
-
-    # Class-level session management (cookies/headers from Selenium)
-    _session: SessionData | None = None
+    _session: OzonBrowserSession | None = None
     _session_lock = threading.Lock()
     _refresh_lock = threading.Lock()
     _success_since_refresh = True
 
     @classmethod
-    def _create_tls_session(cls) -> Session:
-        """Create a fresh TLS session with rotating client identifier."""
-        client_id = TLS_CLIENT_IDENTIFIERS[
-            cls._tls_client_index % len(TLS_CLIENT_IDENTIFIERS)
-        ]
-        cls._tls_client_index += 1
-        logger.debug(f"Creating new TLS session with client identifier: {client_id}")
-        return Session(
-            client_identifier=client_id,
-            random_tls_extension_order=True,
-        )
-
-    @classmethod
-    def _get_tls_session(cls) -> Session:
-        """Get or create TLS session."""
-        if cls._tls_session is None:
-            cls._tls_session = cls._create_tls_session()
-        return cls._tls_session
-
-    @classmethod
-    def _get_session(cls) -> SessionData:
+    def _get_session(cls) -> OzonBrowserSession:
         """Get current session or create a new one if none exists."""
         with cls._session_lock:
             if cls._session is None:
-                cls._session = get_session()
+                cls._session = OzonBrowserSession()
             return cls._session
 
     @classmethod
@@ -93,11 +131,10 @@ class OzonParser(ItemParser):
 
             logger.warning("Refreshing Ozon session due to 403 error")
 
-            # Recreate TLS session to clear stale connection state
-            logger.info("Recreating TLS client session...")
-            cls._tls_session = cls._create_tls_session()
+            if old_session is not None:
+                old_session.close()
 
-            new_session = get_session()
+            new_session = OzonBrowserSession()
 
             with cls._session_lock:
                 cls._session = new_session
@@ -215,8 +252,6 @@ class OzonParser(ItemParser):
             logger.debug(f"Wrong url passed ({url})")
             return None
 
-        proxy_url = None
-        # proxy_url = os.environ.get("PROXY_URL")
         session = cls._get_session()
 
         if not session.is_authenticated:
@@ -226,70 +261,57 @@ class OzonParser(ItemParser):
             )
             return OzonItem(url=url, status=Status.PARSING_ERROR)
 
-        tls_session = cls._get_tls_session()
+        response_price = session.fetch(cls._PRODUCT_URL + url_part)
 
-        response_price = tls_session.get(
-            url=cls._PRODUCT_URL + url_part,
-            headers=session.headers,
-            cookies=session.cookies,
-            proxy=proxy_url,
-            allow_redirects=True,
-        )
-
-        if response_price.status_code == 403:
+        if response_price.status == 403:
             logger.warning("Got 403 response, refreshing session...")
             cls._refresh_session_on_403()
             raise Exception("Session expired (403), retrying with new session")
 
-        if response_price.status_code >= 500:
-            logger.warning(f"Server error ({response_price.text}), retrying...")
+        if response_price.status >= 500:
+            logger.warning(f"Server error ({response_price.status}), retrying...")
             raise Exception("Server error")
 
-        if response_price.status_code == 302:
+        if response_price.status != 200:
+            logger.warning(f"Got error response from Ozon prices: {response_price.status}")
+            return OzonItem(url=url, status=Status.PARSING_ERROR)
+
+        # A 200 whose body isn't the product JSON (redirected to a plain page
+        # instead) means the listing itself is gone/unavailable.
+        if response_price.json is None:
             logger.info("Item out of stock")
             return OzonItem(url=url, status=Status.OUT_OF_STOCK)
-
-        if response_price.status_code != 200:
-            logger.warning(
-                f"Got error response from Ozon prices: {response_price.status_code}"
-            )
-            return OzonItem(url=url, status=Status.PARSING_ERROR)
 
         cls._mark_success()
 
         try:
-            price, green_price = cls._get_prices(response_price.json())
+            price, green_price = cls._get_prices(response_price.json)
         except OutOfStockException as e:
             logger.info(e)
             return OzonItem(url=url, status=Status.OUT_OF_STOCK)
 
         _, redirect_sku = cls.extract_url_parts(response_price.url)
 
-        response_quantity = tls_session.post(
-            url=cls._ADD_TO_CART_URL,
-            data=json.dumps([{"id": redirect_sku, "quantity": 2000}]),
-            headers=session.headers,
-            cookies=session.cookies,
-            proxy=proxy_url,
-            allow_redirects=True,
+        response_quantity = session.fetch(
+            cls._ADD_TO_CART_URL,
+            method="POST",
+            body=json.dumps([{"id": redirect_sku, "quantity": 2000}]),
         )
 
-        if response_quantity.status_code == 403:
+        if response_quantity.status == 403:
             logger.warning("Got 403 response on cart request, refreshing session...")
             cls._refresh_session_on_403()
             raise Exception("Session expired (403), retrying with new session")
 
-        if response_quantity.status_code >= 500:
-            logger.warning(f"Server error ({response_quantity.text}), retrying...")
+        if response_quantity.status >= 500:
+            logger.warning(f"Server error ({response_quantity.status}), retrying...")
             raise Exception("Server error")
 
-        if response_quantity.status_code != 200:
-            logger.warning(
-                f"Got error response from Ozon cart: {response_quantity.status_code}"
-            )
+        if response_quantity.status != 200 or response_quantity.json is None:
+            logger.warning(f"Got error response from Ozon cart: {response_quantity.status}")
             return OzonItem(url=url, status=Status.PARSING_ERROR)
 
-        quantity = cls._get_quantity(response_quantity.json(), redirect_sku)
+        quantity = cls._get_quantity(response_quantity.json, redirect_sku)
 
         item = OzonItem(
             url=url,
@@ -299,15 +321,12 @@ class OzonParser(ItemParser):
             green_price=green_price,
         )
 
-        for cart_item in response_quantity.json()["cart"]["cartItems"]:
+        for cart_item in response_quantity.json["cart"]["cartItems"]:
             logger.debug(f"Remove item from cart: {cart_item}")
-            tls_session.post(
-                url=cls._ADD_TO_CART_URL,
-                data=json.dumps([{"id": cart_item["id"]}]),
-                headers=session.headers,
-                cookies=session.cookies,
-                proxy=proxy_url,
-                allow_redirects=True,
+            session.fetch(
+                cls._ADD_TO_CART_URL,
+                method="POST",
+                body=json.dumps([{"id": cart_item["id"]}]),
             )
 
         logger.info(f"Got item: {item}")

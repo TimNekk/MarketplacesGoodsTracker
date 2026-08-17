@@ -80,8 +80,13 @@
       ansible.builtin.debug:
         msg: >-
           No Ozon profile at {{ project_path }}/data/ozon_profile.
-          Run scripts/ozon_login.py locally and rsync data/ to the server,
+          Either rsync a data/ directory born on Linux (e.g. from another
+          container) to the server, or run
+          `docker compose --profile login run --rm --service-ports ozon-login`
+          on the server itself and log in over the noVNC port it publishes -
           otherwise parsing returns errors instead of authenticated prices.
+          A profile created via scripts/ozon_login.py on a non-Linux host
+          will not work here (Firefox profiles aren't portable across OS).
       when: not ozon_profile.stat.exists
 
     - name: Deploy Ozon service

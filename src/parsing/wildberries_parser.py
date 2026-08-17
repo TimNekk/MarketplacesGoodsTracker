@@ -9,7 +9,7 @@ from the_retry import retry
 
 from src.models import Status, WildberriesUrls, WildberriesItem
 from src.parsing import ItemParser
-from src.parsing.session_parser import SessionData
+from src.parsing.ozon_session_parser import SessionData
 from src.parsing.wildberries_session_parser import get_session
 from src.utils import logger
 
