@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.parsing.session_parser import (  # noqa: E402
+from src.parsing.ozon_session_parser import (  # noqa: E402
     ANONYMOUS_USER_IDS,
     FINGERPRINT_PATH,
     PROFILE_DIR,

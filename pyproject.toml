@@ -13,7 +13,6 @@ dependencies = [
     "playwright>=1.60,<1.61",
     "schedule>=1.2.2",
     "the-retry>=0.1.1",
-    "tls-client>=1.0.1",
 ]
 
 [dependency-groups]

@@ -1,4 +1,19 @@
 services:
+  ozon-login:
+    container_name: marketplaces-goods-tracker-ozon-login
+    build:
+      context: .
+    image: marketplaces-goods-tracker-image
+    profiles: ["login"]
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "6080:6080"
+    entrypoint: ["/entrypoint.sh"]
+    command: scripts/ozon_login_vnc.sh
+
   ozon:
     container_name: marketplaces-goods-tracker-ozon
     build:
@@ -6,7 +21,7 @@ services:
     image: marketplaces-goods-tracker-image
     restart: unless-stopped
     volumes:
-      - .:/usr/src/app
+      - ./creds.json:/app/creds.json:ro
       - ./data:/app/data
     env_file:
       - .env
@@ -23,7 +38,7 @@ services:
     image: marketplaces-goods-tracker-image
     restart: unless-stopped
     volumes:
-      - .:/usr/src/app
+      - ./creds.json:/app/creds.json:ro
     env_file:
       - .env
     environment:

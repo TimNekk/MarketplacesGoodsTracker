@@ -2,7 +2,7 @@ import time
 
 from camoufox import Camoufox
 
-from src.parsing.session_parser import SessionData
+from src.parsing.ozon_session_parser import SessionData
 
 TOKEN_COOKIE_NAME = "x_wbaas_token"
 TOKEN_WAIT_TIMEOUT_SEC = 30
