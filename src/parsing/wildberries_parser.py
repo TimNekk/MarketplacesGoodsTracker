@@ -18,8 +18,8 @@ DELAY_AFTER_FAILED_SESSION_SEC = 60 * 60  # 60 minutes
 
 
 class WildberriesParser(ItemParser):
-    NO_SALE_AMOUNT = 0
-    SALE_AMOUNT = 30
+    SPP = 30
+    CARD_PRICE_PERCENT = 7
     DESTINATION = -1257786
     HEADERS = {
         'accept': '*/*',
@@ -97,7 +97,7 @@ class WildberriesParser(ItemParser):
             code = re.findall(r"catalog\/(\d+)", url)[0]
 
             try:
-                quantity, price, status = cls._get_item_values(code, cls.SALE_AMOUNT)
+                quantity, price, status = cls._get_item_values(code, cls.SPP)
             except ValueError as e:
                 logger.warning(e)
                 continue
@@ -105,8 +105,8 @@ class WildberriesParser(ItemParser):
             item = WildberriesItem(
                 url=url,
                 quantity=quantity,
-                sale_price=int(price * 0.98),
-                no_sale_price=int(price),
+                card_price=int(price * (1 - cls.CARD_PRICE_PERCENT / 100)),
+                price=int(price),
                 status=status,
             )
             items.append(item)
@@ -117,13 +117,13 @@ class WildberriesParser(ItemParser):
 
     @classmethod
     @retry(attempts=3, backoff=5, exponential_backoff=True)
-    def _get_item_values(cls, code: str, sale_amount: int) -> tuple[int, int, Status]:
+    def _get_item_values(cls, code: str, spp: int) -> tuple[int, int, Status]:
         session_data = cls._get_session()
 
         card_url = "https://www.wildberries.ru/__internal/u-card/cards/v4/detail"
         params = {
             "nm": code,
-            "spp": sale_amount,
+            "spp": spp,
             "dest": cls.DESTINATION,
         }
         with Session() as session:
