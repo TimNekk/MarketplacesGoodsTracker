@@ -1,4 +1,19 @@
 services:
+  ozon-login:
+    container_name: marketplaces-goods-tracker-ozon-login
+    build:
+      context: .
+    image: marketplaces-goods-tracker-image
+    profiles: ["login"]
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "6080:6080"
+    entrypoint: ["/entrypoint.sh"]
+    command: scripts/ozon_login_vnc.sh
+
   ozon:
     container_name: marketplaces-goods-tracker-ozon
     build:
@@ -6,14 +21,15 @@ services:
     image: marketplaces-goods-tracker-image
     restart: unless-stopped
     volumes:
-      - .:/usr/src/app
+      - ./creds.json:/app/creds.json:ro
+      - ./data:/app/data
     env_file:
       - .env
     environment:
       - TZ
       - START_TIME=${OZON_START_TIME}
       - PROXY_URL=${PROXY_URL}
-    command: python run.py -oz ${RUN_FLAGS:-} -t ${OZON_START_TIME}
+    command: python run.py -oz ${OZON_RUN_FLAGS:-} -t ${OZON_START_TIME}
 
   wildberries:
     container_name: marketplaces-goods-tracker-wildberries
@@ -22,10 +38,10 @@ services:
     image: marketplaces-goods-tracker-image
     restart: unless-stopped
     volumes:
-      - .:/usr/src/app
+      - ./creds.json:/app/creds.json:ro
     env_file:
       - .env
     environment:
       - TZ
       - START_TIME=${WILDBERRIES_START_TIME}
-    command: python run.py -wb ${RUN_FLAGS:-} -t ${WILDBERRIES_START_TIME}
+    command: python run.py -wb ${WILDBERRIES_RUN_FLAGS:-} -t ${WILDBERRIES_START_TIME}

@@ -35,6 +35,9 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
+    x11vnc \
+    novnc \
+    websockify \
     libgtk-3-0 \
     libx11-xcb1 \
     libasound2 \
@@ -51,12 +54,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libnss3 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m appuser
+RUN useradd -m appuser \
+    && mkdir -p /tmp/.X11-unix \
+    && chown root:root /tmp/.X11-unix \
+    && chmod 1777 /tmp/.X11-unix
 
 COPY --from=builder --chown=appuser:appuser /app /app
 COPY --from=builder --chown=appuser:appuser /camoufox-cache /home/appuser/.cache/camoufox
 COPY --chown=appuser:appuser entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh scripts/ozon_login_vnc.sh
 
 USER appuser
 

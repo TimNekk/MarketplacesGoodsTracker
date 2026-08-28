@@ -1,0 +1,40 @@
+# Git
+.git/
+.github/
+
+# Secrets / creds
+.env
+.env.dist
+creds.json
+
+# Live browser profile + fingerprint data
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+.python-version
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+logs/
+*.log
+
+# Misc project
+ansible/
+test.py
+src/parsing/*_test.py
+inventory.ini
+LICENSE
+README.md
+images/
+justfile
+docker-compose.yml
