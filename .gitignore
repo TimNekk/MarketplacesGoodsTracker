@@ -4,6 +4,7 @@ chromedriver.exe
 creds.json
 logs/
 .vscode/
+
 # Ozon browser profile + fingerprint (contain live credentials)
 data/
 
@@ -137,6 +138,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Ansible
 inventory.ini
-test.py
-src/parsing/*_test.py
+
+# Python test files
+**/*test.py
