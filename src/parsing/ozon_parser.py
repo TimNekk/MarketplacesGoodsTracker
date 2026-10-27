@@ -103,8 +103,13 @@ class OzonParser(ItemParser):
 
     @classmethod
     def _get_session(cls) -> OzonBrowserSession:
-        """Get current session or create a new one if none exists."""
+        """Reuse an open session or recreate it after the browser closes."""
         with cls._session_lock:
+            if cls._session is not None and cls._session.page.is_closed():
+                logger.warning("Ozon browser page closed, recreating session")
+                old_session = cls._session
+                cls._session = None
+                old_session.close()
             if cls._session is None:
                 cls._session = OzonBrowserSession()
             return cls._session
@@ -128,6 +133,8 @@ class OzonParser(ItemParser):
                 if cls._session is not old_session:
                     logger.info("Session already refreshed by another thread, skipping")
                     return
+                # A failed close or launch must not leave a closed session cached.
+                cls._session = None
 
             logger.warning("Refreshing Ozon session due to 403 error")
 
