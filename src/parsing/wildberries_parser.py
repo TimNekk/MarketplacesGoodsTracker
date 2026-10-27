@@ -94,7 +94,11 @@ class WildberriesParser(ItemParser):
         for url in urls:
             logger.info(f"Getting item from \"{url}\"...")
 
-            code = re.findall(r"catalog\/(\d+)", url)[0]
+            match = re.search(r"catalog\/(\d+)", url)
+            if match is None:
+                logger.warning(f'Invalid Wildberries URL, skipping: "{url}"')
+                continue
+            code = match.group(1)
 
             try:
                 quantity, price, status = cls._get_item_values(code, cls.SPP)
