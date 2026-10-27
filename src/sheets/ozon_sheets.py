@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 
 from gspread.utils import ValueInputOption
 from oauth2client.service_account import ServiceAccountCredentials
@@ -10,11 +11,19 @@ from src.utils import logger
 
 class OzonSheets(Sheets):
     WORKBOOK_NAME = "Трекер Ozon"
-    TOP_OFFSET_CELL_VALUE = "Продавец"
 
     def __init__(self, credentials: ServiceAccountCredentials) -> None:
-        super().__init__(credentials, self.WORKBOOK_NAME, self.TOP_OFFSET_CELL_VALUE)
-        self._top_offset += 1
+        super().__init__(credentials, self.WORKBOOK_NAME)
+
+    def _get_top_offset(self) -> int:
+        logger.info("Getting top offset from the first product URL...")
+        # shortcut: requires a full product URL in B, revisit if shortened links are used.
+        for index, value in enumerate(self._sheet.col_values(2)):
+            if re.match(r"https?://(?:www\.)?ozon\.ru/product/[^\s/?#]+", value):
+                if index < 2:
+                    raise ValueError("Ozon sheet needs two header rows before products")
+                return index - 1
+        raise ValueError("No Ozon product URL found in column B")
 
     def get_urls(self, skip_empty: bool = True) -> OzonUrls:
         logger.info("Getting urls...")

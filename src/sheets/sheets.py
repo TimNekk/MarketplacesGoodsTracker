@@ -14,18 +14,16 @@ class Sheets(ABC):
     def __init__(self,
                  credentials: ServiceAccountCredentials,
                  workbook_name: str,
-                 top_offset_cell_value: str
                  ) -> None:
         self._client = gspread.authorize(credentials)
         self._workbook = self._client.open(workbook_name)
-        self._top_offset_cell_value = top_offset_cell_value
 
         self._sheet = self._workbook.sheet1
         self._top_offset = self._get_top_offset()
 
+    @abstractmethod
     def _get_top_offset(self) -> int:
-        logger.info("Getting top offset...")
-        return self._sheet.col_values(1).index(self._top_offset_cell_value)
+        pass
 
     @abstractmethod
     def get_urls(self) -> Urls:

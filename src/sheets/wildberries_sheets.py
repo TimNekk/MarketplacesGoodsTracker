@@ -14,7 +14,11 @@ class WildberriesSheets(Sheets):
     TOP_OFFSET_CELL_VALUE = "Ссылка"
 
     def __init__(self, credentials: ServiceAccountCredentials):
-        super().__init__(credentials, self.WORKBOOK_NAME, self.TOP_OFFSET_CELL_VALUE)
+        super().__init__(credentials, self.WORKBOOK_NAME)
+
+    def _get_top_offset(self) -> int:
+        logger.info("Getting top offset...")
+        return self._sheet.col_values(1).index(self.TOP_OFFSET_CELL_VALUE)
 
     def get_urls(self, skip_empty: bool = True) -> WildberriesUrls:
         logger.info("Getting urls...")
