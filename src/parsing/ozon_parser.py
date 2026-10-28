@@ -318,7 +318,16 @@ class OzonParser(ItemParser):
         cleanup_error = None
         try:
             quantity = cls._get_quantity(response_quantity.json, redirect_sku)
-            response_cart = session.fetch(cls._CART_URL)
+            # Bulk quantities can lose discounts; read the price for one unit.
+            response_cart = session.fetch(
+                cls._ADD_TO_CART_URL,
+                method="POST",
+                body=json.dumps([{"id": redirect_sku, "quantity": 1}]),
+            )
+            if response_cart.status == 200:
+                if response_cart.json is None or cls._get_quantity(response_cart.json, redirect_sku) != 1:
+                    raise ValueError("Could not set cart quantity to one")
+                response_cart = session.fetch(cls._CART_URL)
         finally:
             try:
                 session.fetch(
