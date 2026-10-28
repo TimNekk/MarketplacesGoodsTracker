@@ -13,7 +13,6 @@ from playwright.sync_api import BrowserContext, Page
 
 from src.models import Status, OzonUrls, OzonItem
 from src.parsing import ItemParser
-from src.parsing.exceptions import OutOfStockException
 from src.parsing.ozon_session_parser import (
     ENTRYPOINT_REQUEST,
     OZON_URL,
@@ -72,7 +71,7 @@ class OzonBrowserSession:
         if self.is_authenticated:
             logger.info(f"Got authenticated session (user id {self._user_id()})")
         else:
-            logger.warning("Got anonymous session, prices will not match a logged in user")
+            logger.info("Got anonymous session; prices will be read from the cart")
 
     def _user_id(self) -> str:
         cookies = {c["name"]: c["value"] for c in self.context.cookies()}
@@ -94,6 +93,7 @@ class OzonBrowserSession:
 class OzonParser(ItemParser):
     _BASE_URL = r"https://www.ozon.ru/api/composer-api.bx/"
     _PRODUCT_URL = _BASE_URL + r"page/json/v2?url=%2Fproduct%2F"
+    _CART_URL = _BASE_URL + r"page/json/v2?url=%2Fcart"
     _ADD_TO_CART_URL = _BASE_URL + r"_action/addToCart"
 
     _session: OzonBrowserSession | None = None
@@ -179,25 +179,30 @@ class OzonParser(ItemParser):
             return None, None
 
     @staticmethod
-    def _get_prices(response: dict) -> tuple[int, int | None]:
-        widget_states = response["widgetStates"]
-
-        price_json = None
-        for key, value in widget_states.items():
-            if key.startswith("webPrice-"):
-                price_json = json.loads(value)
-                break
-
-        if price_json is None:
-            raise OutOfStockException("Item is out of stock")
-
-        price_str = price_json["price"]
-        green_price_str = price_json.get("cardPrice")
-
-        return (
-            OzonParser.price_to_number(price_str),
-            OzonParser.price_to_number(green_price_str) if green_price_str else None,
-        )
+    def _get_cart_prices(response: dict, sku: int) -> tuple[int, int | None]:
+        for key, value in response["widgetStates"].items():
+            if not key.startswith("cartSplit-"):
+                continue
+            for item in json.loads(value)["cartItems"]:
+                if item["product"]["id"] != str(sku):
+                    continue
+                quantity = item["controls"]["quantity"]["current"]
+                prices = {}
+                for column in item["product"]["priceColumn"]:
+                    if column["type"] != "prices":
+                        continue
+                    for element in column["prices"]["elements"]:
+                        kind = element.get("testInfo", {}).get("automatizationId")
+                        if kind not in ("cart-split-item-price", "cart-split-item-ozon-card-price"):
+                            continue
+                        total = OzonParser.price_to_number(element["price"][0]["text"])
+                        # Cart prices are line totals, including every requested unit.
+                        price, remainder = divmod(total, quantity)
+                        if remainder or price <= 0:
+                            raise ValueError("Invalid cart unit price")
+                        prices[kind] = price
+                return prices["cart-split-item-price"], prices.get("cart-split-item-ozon-card-price")
+        raise ValueError("Product price not found in cart")
 
     @staticmethod
     def _get_quantity(response: dict, sku: int) -> int:
@@ -261,13 +266,6 @@ class OzonParser(ItemParser):
 
         session = cls._get_session()
 
-        if not session.is_authenticated:
-            logger.error(
-                "Ozon session is not authenticated, prices would be anonymous ones. "
-                "Log in again with scripts/ozon_login.py"
-            )
-            return OzonItem(url=url, status=Status.PARSING_ERROR)
-
         response_price = session.fetch(cls._PRODUCT_URL + url_part)
 
         if response_price.status == 403:
@@ -291,13 +289,12 @@ class OzonParser(ItemParser):
 
         cls._mark_success()
 
-        try:
-            price, green_price = cls._get_prices(response_price.json)
-        except OutOfStockException as e:
-            logger.info(e)
+        if not any(key.startswith("webPrice-") for key in response_price.json["widgetStates"]):
+            logger.info("Item out of stock")
             return OzonItem(url=url, status=Status.OUT_OF_STOCK)
 
         _, redirect_sku = cls.extract_url_parts(response_price.url)
+        redirect_sku = redirect_sku or sku
 
         response_quantity = session.fetch(
             cls._ADD_TO_CART_URL,
@@ -318,7 +315,32 @@ class OzonParser(ItemParser):
             logger.warning(f"Got error response from Ozon cart: {response_quantity.status}")
             return OzonItem(url=url, status=Status.PARSING_ERROR)
 
-        quantity = cls._get_quantity(response_quantity.json, redirect_sku)
+        cleanup_error = None
+        try:
+            quantity = cls._get_quantity(response_quantity.json, redirect_sku)
+            response_cart = session.fetch(cls._CART_URL)
+        finally:
+            try:
+                session.fetch(
+                    cls._ADD_TO_CART_URL,
+                    method="POST",
+                    body=json.dumps([{"id": redirect_sku}]),
+                )
+            except Exception as e:
+                logger.warning(f"Failed to remove item from cart: {e}")
+                cleanup_error = e
+
+        if response_cart.status == 403:
+            cls._refresh_session_on_403()
+            raise Exception("Session expired (403), retrying with new session")
+        if cleanup_error is not None:
+            raise cleanup_error
+        if response_cart.status >= 500:
+            raise Exception("Server error fetching cart prices")
+        if response_cart.status != 200 or response_cart.json is None:
+            return OzonItem(url=url, status=Status.PARSING_ERROR)
+
+        price, green_price = cls._get_cart_prices(response_cart.json, redirect_sku)
 
         item = OzonItem(
             url=url,
@@ -327,14 +349,6 @@ class OzonParser(ItemParser):
             status=Status.OK,
             green_price=green_price,
         )
-
-        for cart_item in response_quantity.json["cart"]["cartItems"]:
-            logger.debug(f"Remove item from cart: {cart_item}")
-            session.fetch(
-                cls._ADD_TO_CART_URL,
-                method="POST",
-                body=json.dumps([{"id": cart_item["id"]}]),
-            )
 
         logger.info(f"Got item: {item}")
         return item
